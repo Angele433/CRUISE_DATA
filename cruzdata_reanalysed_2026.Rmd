@@ -27,6 +27,7 @@ library(kableExtra) #formatting e,g. colour)
 library(zoo) #remove noisy bumps from data #rolling median
 library(specleanr) #20 ways to detect outliers
 library(tidytext) #visualize outliers from specleanr package
+library(ggpubr) ##adding equations to the plot
 
 
 
@@ -931,7 +932,331 @@ cr_jul24_merge_subset <- cr_jul24_merge %>%
 
 
 
-ysi_field_data <- bind_rows(cr_jul23_merge_subset, cr_jul24_merge_subset, ysidata_2022)
+ysi_field_data <- bind_rows(cr_jul23_merge_subset, cr_jul24_merge_subset, ysidata_2022)  %>% 
+  mutate(data_type = "field")
+
+
+
+```
+
+
+# Experiments data
+
++   2022 experiments
+
++   MF sonde
+```{r}
+#MF sonde
+
+file_paths.csv <- dir("experiments", pattern = "*.csv", full.names = TRUE)
+
+MF_EXPER <- read_csv(file_paths.csv[3], skip=2, 
+                     col_names = c("date_time", "temp", 
+                                   "sp_cond", "salinity", "depth", "chl_ug_l",
+                                   "chl_rfu_F", "bga_pc", "bga_rfu_F", "battery"))
+
+MF_EXPER_b <- MF_EXPER %>%
+  mutate(date_time = as.POSIXct(date_time, format = "%m/%d/%Y %H:%M"),
+         code = case_when(
+           (date_time >= as.POSIXct("2022-07-10 12:01:00") & date_time <= as.POSIXct("2022-07-10 13:01:00")) ~ "X",
+           (date_time >= as.POSIXct("2022-07-10 13:11:00") & date_time <= as.POSIXct("2022-07-10 14:21:00")) ~ "0.5X",
+           (date_time >= as.POSIXct("2022-07-10 14:31:00") & date_time <= as.POSIXct("2022-07-10 15:21:00")) ~ "0.25X",
+           (date_time >= as.POSIXct("2022-07-10 15:31:00") & date_time <= as.POSIXct("2022-07-10 16:21:00")) ~ "0.125X",
+           (date_time >= as.POSIXct("2022-07-10 16:31:00") & date_time <= as.POSIXct("2022-07-10 21:01:00")) ~ "0.062X",
+           (date_time >= as.POSIXct("2022-07-10 21:11:00") & date_time <= as.POSIXct("2022-07-10 22:41:00")) ~ "0.031X",
+           (date_time >= as.POSIXct("2022-07-10 22:51:00") & date_time <= as.POSIXct("2022-07-11 06:01:00")) ~ "0.015X",
+           (date_time >= as.POSIXct("2022-07-11 06:11:00") & date_time <= as.POSIXct("2022-07-11 12:01:00")) ~ "0.007X",
+           TRUE ~ NA_character_
+         )) %>% 
+  filter(!is.na(code))
+
+
+
+```
+
++     remove outliers_MF sonde
+```{r}
+
+ysiF_expt_outlier_detect <- multidetect(data = MF_EXPER_b, 
+                                var = "chl_rfu_F", 
+                                var_col = "code",
+                                multiple = TRUE,
+                                methods = c("adjbox", "iqr", "hampel","jknife",
+                                            "seqfences", "mixediqr",
+                                            "distboxplot", "semiqr",
+                                            "zscore", "logboxplot", "medianrule"),
+                       silence_true_errors = TRUE, 
+                       missingness = 0.1,
+                       sdm = FALSE,
+                       na.inform = TRUE)
+  
+  
+
+#Visualize the number of outliers detected by each method
+
+ggoutliers(ysiF_expt_outlier_detect, select = unique(MF_EXPER_b$code),
+           color = "lightblue",
+           ncol = 5,
+           nrow = 10)
+
+
+
+ggsave(file = "plots/2022_plots/expts/2022MFsonde_Expt_outlier_graph.png", width = 10, height = 5, dpi = 300)
+
+
+#Obtaining quality controlled dataset using loess method or data labeling
+
+
+out_qc_loess22F <- extract_clean_data(refdata = MF_EXPER_b, 
+            outliers = ysiF_expt_outlier_detect, loess = TRUE,
+            var_col = "code",
+            threshold = 0.7)  #set threshold to 0.8 to remove the very strong outliers only
+
+#clean dataset
+nrow(MF_EXPER_b)
+
+#reference data
+nrow(ysiF_2022_b)
+
+out_qc_labeled22F <- classify_data(refdata = MF_EXPER_b, 
+                                 var_col = "code", 
+                                outliers = ysiF_expt_outlier_detect)
+
+#Visualize labelled quality controlled dataset
+
+ggenvironmentalspace(ysiF_expt_outlier_detect, 
+                     type = '1D',
+                     ggxangle = 45, 
+                     scalecolor = 'viridis',
+                     xhjust = 1,
+                     legend_position = 'blank',
+                     ylab = "Number of records",
+                     xlab = "Outlier labels",
+                     ncol = 5,
+                     nrow = 2)  #investigate why it's not working#############################
+
+#ggsave(filename = "plots/2022_plots/labelled_outlier_chart_MF.png", width = 8, height = 5, dpi = 300)
+
+
+#labelled outlier or not 
+labeled22F <- classify_data(refdata = MF_EXPER_b, 
+                           var_col = "code",
+                           outliers = ysiF_expt_outlier_detect)
+
+
+
+#plot clean dataset
+
+out_qc_loess22F %>% 
+mutate(code = as.factor(code)) %>% 
+ggplot(aes(x = chl_rfu_F)) +
+  geom_histogram(bins=5,binwidth = 1, boundary = 0, fill = "steelblue", color = "black") +
+#facet_wrap(~ code, scales = "free_y")+
+  labs(x = "Chlorophyll (RFU)", y = "Frequency") +
+  theme_bw() +
+  theme(text = element_text(size = 20, colour = "black"),
+        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))+
+ scale_x_continuous(
+  breaks = scales::pretty_breaks(n = 6)  #ggplot makes breaks based on data
+)
+
+ggsave(file="plots/2022_plots/expts/MF_expt_loessfilter_general_freq_distribution.png", width = 10, height = 14, dpi = 300)
+
+
+#final dataset
+
+MF_EXPER_c <- out_qc_loess22F %>% filter(!is.na(code)) %>% 
+  group_by(code) %>%
+  slice_max(order_by = chl_rfu_F, n = 3) %>%
+  summarise(
+    chl_ysi = mean(chl_rfu_F, na.rm = TRUE),
+    bga_ysi = mean(bga_rfu_F, na.rm= TRUE),
+    temp_ysi = mean(temp, na.rm=TRUE),
+    sp_cond_ysi = mean(sp_cond, na.rm = TRUE)
+    ) %>% 
+  ungroup() %>% 
+  mutate(file_name = "MFysi-2022_expt")
+
+```
+
+
++     DG sonde
+```{r}
+DU_EXPER <- read_csv(file_paths.csv[2], skip=2, 
+                     col_names = c("date_time", "temp", 
+                                   "sp_cond", "salinity", "depth", "chl_ug_l",
+                                   "chl_rfu_DG", "bga_pc", "bga_rfu_DG", "battery"))
+
+DU_EXPER_b <- DU_EXPER %>%
+  mutate(date_time = as.POSIXct(date_time, format = "%m/%d/%Y %H:%M"),
+         code = case_when(
+           (date_time >= as.POSIXct("2022-07-08 19:10:00") & date_time <= as.POSIXct("2022-07-10 13:00:00")) ~ "X",
+           (date_time >= as.POSIXct("2022-07-10 13:10:00") & date_time <= as.POSIXct("2022-07-10 14:20:00")) ~ "0.5X",
+           (date_time >= as.POSIXct("2022-07-10 14:30:00") & date_time <= as.POSIXct("2022-07-10 15:20:00")) ~ "0.25X",
+           (date_time >= as.POSIXct("2022-07-10 15:30:00") & date_time <= as.POSIXct("2022-07-10 16:20:00")) ~ "0.125X",
+           (date_time >= as.POSIXct("2022-07-10 16:30:00") & date_time <= as.POSIXct("2022-07-10 21:00:00")) ~ "0.062X",
+           (date_time >= as.POSIXct("2022-07-10 21:10:00") & date_time <= as.POSIXct("2022-07-10 22:40:00")) ~ "0.031X",
+           (date_time >= as.POSIXct("2022-07-10 22:50:00") & date_time <= as.POSIXct("2022-07-11 06:00:00")) ~ "0.015X",
+           (date_time >= as.POSIXct("2022-07-11 06:10:00") & date_time <= as.POSIXct("2022-07-11 11:50:00")) ~ "0.007X",
+           TRUE ~ NA_character_
+         ))
+```
+
+
++ remove outliers from the DG sonde 
+```{r}
+
+
+DG22_expt_outlier_detect <- multidetect(data = DU_EXPER_b, 
+                                var = "chl_rfu_DG", 
+                                var_col = "code",
+                                multiple = TRUE,
+                                methods = c("adjbox", "iqr", "hampel","jknife",
+                                            "seqfences", "mixediqr",
+                                            "distboxplot", "semiqr",
+                                            "zscore", "logboxplot", "medianrule"),
+                       silence_true_errors = TRUE, 
+                       missingness = 0.1,
+                       sdm = FALSE,
+                       na.inform = TRUE)
+  
+  
+
+#Visualize the number of outliers detected by each method
+
+ggoutliers(DG22_expt_outlier_detect, select = unique(DU_EXPER_b$code),
+           color = "lightblue",
+           ncol = 5,
+           nrow = 10)
+
+
+
+ggsave(file = "plots/2022_plots/expts/2022MFsonde_Expt_outlier_graph.png", width = 10, height = 5, dpi = 300)
+
+
+#Obtaining quality controlled dataset using loess method or data labeling
+
+
+out_qc_loess22DG <- extract_clean_data(refdata = DU_EXPER_b, 
+            outliers = DG22_expt_outlier_detect, loess = TRUE,
+            var_col = "code",
+            threshold = 0.8)  #set threshold to 0.8 to remove the very strong outliers only
+
+#clean dataset
+nrow(out_qc_loess22DG)
+
+#reference data
+nrow(DU_EXPER_b)
+
+out_qc_labeled22DU <- classify_data(refdata = DU_EXPER_b, 
+                                 var_col = "code", 
+                                outliers = DG22_expt_outlier_detect)
+
+#Visualize labelled quality controlled dataset
+
+ggenvironmentalspace(DG22_expt_outlier_detect, 
+                     type = '1D',
+                     ggxangle = 45, 
+                     scalecolor = 'viridis',
+                     xhjust = 1,
+                     legend_position = 'blank',
+                     ylab = "Number of records",
+                     xlab = "Outlier labels",
+                     ncol = 5,
+                     nrow = 3)  #investigate why it's not working#############################
+
+#ggsave(filename = "plots/2022_plots/labelled_outlier_chart_MF.png", width = 8, height = 5, dpi = 300)
+
+
+#labelled outlier or not 
+labeled22DG <- classify_data(refdata = DU_EXPER_b, 
+                           var_col = "code",
+                           outliers = DG22_expt_outlier_detect)
+
+
+
+#plot clean dataset
+
+out_qc_labeled22DU %>% 
+mutate(code = as.factor(code)) %>% 
+ggplot(aes(x = chl_rfu_DG)) +
+  geom_histogram(bins=5,binwidth = 1, boundary = 0, fill = "steelblue", color = "black") +
+#facet_wrap(~ code, scales = "free_y")+
+  labs(x = "Chlorophyll (RFU)", y = "Frequency") +
+  theme_bw() +
+  theme(text = element_text(size = 20, colour = "black"),
+        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))+
+ scale_x_continuous(
+  breaks = scales::pretty_breaks(n = 6)  #ggplot makes breaks based on data
+)
+
+ggsave(file="plots/2022_plots/expts/DG_expt_loessfilter_general_freq_distribution.png", width = 10, height = 14, dpi = 300)
+
+
+##################################################333
+#Final dataset
+
+DU_EXPER_c <- out_qc_labeled22DU %>% 
+  group_by(code) %>%
+  slice_max(order_by = chl_rfu_DG, n = 3) %>%
+  summarise(
+    chl_ysi = mean(chl_rfu_DG, na.rm = TRUE),
+    bga_ysi = mean(bga_rfu_DG, na.rm= TRUE),
+    temp_ysi = mean(temp, na.rm=TRUE),
+    sp_cond_ysi = mean(sp_cond, na.rm = TRUE)
+    ) %>% 
+  ungroup() %>% 
+  mutate(file_name = "DGysi-2022_expt")
+
+###joining the expt readings for ysi_DG and ysi_MF
+expt22_ysi <- full_join(DU_EXPER_c, MF_EXPER_c)
+
+
+
+
+```
+
+
++   extracted chl for the dilution expt
+
+```{r}
+
+ext_chl_expt22 <- read_csv(file_paths.csv[4])
+
+
+ext_chl_expt22$DF <- df_func(ext_chl_expt22$total_vol, ext_chl_expt22$sample_vol)
+
+fluorescence_units <- ext_chl_expt22$FU
+dilution_factor  <- ext_chl_expt22$DF
+extract_volume <- ext_chl_expt22$vol_ext_ml
+volume_filtered <- ext_chl_expt22$vol_fil_ml/1000
+
+ext_chl_expt22$ext_chl <- convert_fluorescence_to_chlorophyll(fluoresence_units, dilution_factor, extract_volume, volume_filtered)
+
+
+ext_chl_expt22_b <- ext_chl_expt22 %>% 
+  dplyr::select(code, ext_chl)
+
+
+#join the ext_chl with the ysi readings
+
+ysi_dilution_expt <- full_join(expt22_ysi, ext_chl_expt22_b, by = "code") %>% 
+  mutate(data_type = "experiment")
+
+
+
+
+```
+
+
+
++ join ysi dilution expt data with field data
+
+```{r}
+
+
+calib_data <- bind_rows(ysi_field_data, ysi_dilution_expt) %>% 
+  filter(if_all(c(ext_chl, chl_ysi), ~ !is.na(.)))
 
 
 
@@ -940,6 +1265,130 @@ ysi_field_data <- bind_rows(cr_jul23_merge_subset, cr_jul24_merge_subset, ysidat
 
 
 
+
++ Linear regression for chl_ysi ~ ext_chl
+
++   check slopes across years
+
+```{r}
+#Experiment only
+calib_data_field <- calib_data  %>% 
+  filter(data_type %in% "field") 
+
+#leave out experiment for now
+calib_data %>% 
+  filter(data_type %in% "field") %>% 
+  arrange(file_name, chl_ysi) %>% 
+  ggplot(aes(x = chl_ysi, y = ext_chl)) +
+  geom_point(color = "steelblue") +
+  geom_line(aes(group = 1)) +
+  facet_wrap(~ file_name, scales= "free_y") 
+
+ggsave(filename = "plots/CALIB/rship_ysi~ext_field.png", width = 10, height = 14, dpi = 300)
+
+
+##log transformed
+
+calib_data %>% 
+  #filter(data_type %in% "experiment") %>% 
+  ggplot(aes(log10(chl_ysi), log10(ext_chl), color = file_name)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  facet_wrap(~ file_name, scales = "free_y")
+
+ggsave(filename = "plots/CALIB/log_rship_ysi~ext_field.png", width = 10, height = 14, dpi = 300)
+
+
+
+###lm for different field data
+
+###let's try a lm with the DGsonde included
+
+calib_data_field_withdg  <- calib_data_field %>% 
+arrange(file_name, chl_ysi) 
+
+calib_data_field_withdg %>% 
+ggplot(aes(log10(chl_ysi), log10(ext_chl), colour = file_name)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  theme(axis.text = element_text(size=14))+
+stat_regline_equation(
+    aes(label =  paste(after_stat(eq.label), ..rr.label.., 
+                       sep = "~~~~")), show.legend = FALSE)
+
+
+ggsave(filename = "plots/CALIB/log_rship_ysi~ext_field_withDGysi_facet.png", width = 10, height = 10, dpi = 300)
+
+
+###model with DGsonde no interaction
+
+model_1 <- lm(
+  log10(ext_chl + 1) ~log10(chl_ysi + 1),
+  data = calib_data_field_withdg
+)
+
+summary(model_1)
+
+
+
+#no DGsonde
+calib_data_field_nodg <- calib_data_field %>% 
+filter(file_name != "cruise-2022_DGysi") %>% 
+arrange(file_name, chl_ysi)
+
+calib_data_field_nodg %>% 
+ggplot(aes(log10(chl_ysi), log10(ext_chl), colour = file_name)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+stat_regline_equation(
+    aes(label =  paste(after_stat(eq.label), ..rr.label.., 
+                       sep = "~~~~")), show.legend = FALSE)
+
+ggsave(filename = "plots/CALIB/log_rship_ysi~ext_field_noDGysi_facetted.png", width = 10, height = 10, dpi = 300)
+
+###model with no DGsonde no interaction
+
+model_1 <- lm(
+  log10(ext_chl + 1) ~log10(chl_ysi + 1),
+  data = calib_data_field_nodg
+)
+
+summary(model_1)
+
+
+
+```
+
++ lets try models with interaction
+
+```{r}
+
+###model with DG with interaction
+
+model_1 <- lm(
+  log10(ext_chl + 1) ~log10(chl_ysi + 1)  * file_name,
+  data = calib_data_field_withdg
+)
+
+summary(model_1)
+
+
+
+###model with no DG with interaction
+
+model_1 <- lm(
+  log10(ext_chl + 1) ~log10(chl_ysi + 1)  * file_name,
+  data = calib_data_field_nodg
+)
+
+
+
+summary(model_1)
+
+
+
+
+```
 
 
 
