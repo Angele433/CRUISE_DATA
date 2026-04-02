@@ -28,6 +28,8 @@ library(zoo) #remove noisy bumps from data #rolling median
 library(specleanr) #20 ways to detect outliers
 library(tidytext) #visualize outliers from specleanr package
 library(ggpubr) ##adding equations to the plot
+library(purrr) #to read csv files with map_dfr 
+library(hms) #convert time to proper hms
 
 
 
@@ -47,7 +49,7 @@ file_paths.csv <- dir("2022_files", pattern = "*.csv", full.names = TRUE)
 
 
 
-ysiF_2022 <- read_csv(file_paths.csv[3], skip=2, 
+ysiF_2022 <- read_csv(file_paths.csv[2], skip=2, 
                       col_names = c("date_time", "temp", 
                                     "sp_cond", "salinity", "depth", "chl_ug_l",
                                     "chl_rfu_F", "bga_pc", "bga_rfu_F", "battery"))
@@ -69,7 +71,7 @@ ysiF_2022_b <- ysiF_2022 %>%
 
 ```
 
-+   checking for outliers
++   checking for MF sonde outliers
 
 ```{r}
 #The values are very few. They were recorded every 30 minutes and so we will just do average
@@ -183,7 +185,7 @@ ysiF_2022_c <- ysiF_2022_b %>%
 
 ```{r}
 #DUNGA sonde
-ysi_2022DG <-read_csv(file_paths.csv[2], skip=2, col_names = c("date_time", "temp", 
+ysi_2022DG <-read_csv(file_paths.csv[1], skip=2, col_names = c("date_time", "temp", 
                                        "sp_cond", "salinity",
                                                            "depth", "chl_ug_l",
                                   "chl_rfu_DG", "bga_pc", "bga_rfu_DG", "battery"))
@@ -539,23 +541,6 @@ ysicrjul_24 <- crjul_24 %>%
   filter(file_name != c("CALIB24_ysi")) %>% 
   mutate(date_time = as.POSIXct(date_time, format = "%m/%d/%Y %H:%M"),
          code = case_when(
-            (date_time >= as.POSIXct("2024-07-15 15:40") & date_time <= as.POSIXct("2024-07-15 15:41")) ~ "DM1",
-            (date_time >= as.POSIXct("2024-07-15 15:47") & date_time <= as.POSIXct("2024-07-15 15:49")) ~ "DM2",
-                   (date_time >= as.POSIXct("2024-07-15 15:52") & date_time <= as.POSIXct("2024-07-15 15:55")) ~ "DM3",
-           (date_time >= as.POSIXct("2024-07-15 15:58") & date_time <= as.POSIXct("2024-07-15 16:01")) ~ "DM4",
-           (date_time >= as.POSIXct("2024-07-15 16:04") & date_time <= as.POSIXct("2024-07-15 16:07")) ~ "DM5",
-           (date_time >= as.POSIXct("2024-07-15 16:13") & date_time <= as.POSIXct("2024-07-15 16:16")) ~ "DM6",
-           (date_time >= as.POSIXct("2024-07-15 16:20") & date_time <= as.POSIXct("2024-07-15 16:23")) ~ "DM7",
-           (date_time >= as.POSIXct("2024-07-15 16:27") & date_time <= as.POSIXct("2024-07-15 16:29")) ~ "DM8",
-           (date_time >= as.POSIXct("2024-07-15 16:33") & date_time <= as.POSIXct("2024-07-15 16:35")) ~ "DM9",
-           (date_time >= as.POSIXct("2024-07-15 16:38") & date_time <= as.POSIXct("2024-07-15 16:41")) ~ "DM10",
-           (date_time >= as.POSIXct("2024-07-15 16:43") & date_time <= as.POSIXct("2024-07-15 16:46")) ~ "DM11",
-           (date_time >= as.POSIXct("2024-07-15 16:50") & date_time <= as.POSIXct("2024-07-15 16:53")) ~ "DM12",
-           (date_time >= as.POSIXct("2024-07-15 16:59") & date_time <= as.POSIXct("2024-07-15 17:01")) ~ "DM13",
-           (date_time >= as.POSIXct("2024-07-15 17:07") & date_time <= as.POSIXct("2024-07-15 17:09")) ~ "DM14",
-           (date_time >= as.POSIXct("2024-07-15 17:13") & date_time <= as.POSIXct("2024-07-15 17:14")) ~ "DM15",
-           (date_time >= as.POSIXct("2024-07-15 17:17") & date_time <= as.POSIXct("2024-07-15 17:20")) ~ "DM16",
-          (date_time >= as.POSIXct("2024-07-15 18:17")  & date_time <= as.POSIXct("2024-07-15 18:21")) ~ "PT",
           
           (date_time >= as.POSIXct("2024-07-18 14:28:00") & date_time <= as.POSIXct("2024-07-18 14:48:00")) ~ "CHL26",
            (date_time >= as.POSIXct("2024-07-18 15:37:00") & date_time <= as.POSIXct("2024-07-18 15:42:00")) ~ "CHL25",
@@ -600,7 +585,7 @@ ysicrjul_24 <- crjul_24 %>%
 ))) %>% 
   mutate(year= year(date_time_parsed),
          month = month(date_time_parsed),
-         mmyy = format(date_time_parsed, "%m-%y"))
+         mmyy = format(date_time_parsed, "%m-%y")) 
 
 
 
@@ -806,40 +791,6 @@ final24_df <- out_qc_labeled24 %>%
 +   Extracted chlorophyll files
 
 
-+ 2022
-
-```{r}
-
-
-data_2022 <- read_csv(file_paths.csv[1])
-
-
-
-
-data_2022 <- data_2022 %>% 
-  rename(date_time = date) 
-
-data_2022 <- data_2022%>% 
-  mutate(date = date(date_time),
-         time = paste(hour(date_time), minute(date_time), second(date_time), 
-                      sep = ":"))  # Extract time components and combine)
-
-cruise_sites_22 <- data_2022 %>% 
-  dplyr::select(station, fu_chl) %>%
-  rename(code = station,
-         ext_chl = fu_chl) %>% 
-  filter(code %in% c("BG10", "BG13", "BG16", "CNL1", "BG18")) 
-  
-#cruise_sites_22 contains extracted chl for matching the 2022 cruise_compar sondes
-
-ysidata_2022 <- full_join(cruise_sondes_2022, cruise_sites_22, by = "code") %>% 
-  rename(file_name = sample_type)
-
-
-
-```
-
-
 +   2023
 
 
@@ -908,6 +859,40 @@ chl_df_24 <- chl_dat_subset %>%
   filter_out(sample_type == "expt-jul_24") %>% 
   rename(code = site)
  
+
+
+```
+
+
++ 2022
+
+```{r}
+
+
+data_2022 <- read_csv(file_paths.csv[4])
+
+#this file has 2022 cruise ext_chl
+
+
+data_2022 <- data_2022 %>% 
+  rename(date_time = date) 
+
+data_2022 <- data_2022%>% 
+  mutate(date = date(date_time),
+         time = paste(hour(date_time), minute(date_time), second(date_time), 
+                      sep = ":"))  # Extract time components and combine)
+
+cruise_sites_22 <- data_2022 %>% 
+  dplyr::select(station, fu_chl) %>%
+  rename(code = station,
+         ext_chl = fu_chl) %>% 
+  filter(code %in% c("BG10", "BG13", "BG16", "CNL1", "BG18")) 
+  
+#cruise_sites_22 contains extracted chl for matching the 2022 cruise_compar sondes
+
+ysidata_2022 <- full_join(cruise_sondes_2022, cruise_sites_22, by = "code") %>% 
+  rename(file_name = sample_type)
+
 
 
 ```
@@ -1382,13 +1367,40 @@ model_1 <- lm(
 )
 
 
+summary(model_1)
+
+
+```
+
++   let's add some environmental variables
+```{r}
+
+#with DG
+
+model_1 <- lm(
+  log10(ext_chl + 1) ~ 
+    log10(chl_ysi + 1) * file_name +
+    temp_ysi + sp_cond_ysi,
+  data = calib_data_field_withdg
+)
+
+summary(model_1)
+
+#no DG
+
+model_1 <- lm(
+  log10(ext_chl + 1) ~ 
+    log10(chl_ysi + 1) * file_name +
+    temp_ysi + sp_cond_ysi,
+  data = calib_data_field_nodg
+)
 
 summary(model_1)
 
 
 
-
 ```
+
 
 
 
@@ -1396,80 +1408,1450 @@ summary(model_1)
 
 
 #   **c3 files**
+
++   2023 cruise
 ```{r}
+file_paths_csv <- dir("c3_files", pattern = "*.csv", full.names = TRUE)
 
 
-#YSI files
+#function to read files
 
-# Get a list of file paths in the "files" directory
-
-file_paths.csv <- dir("c3_files", pattern = "*.csv", full.names = TRUE)
-
-
-# Read the first file and inspect its column names
-first_file <- read_csv(file_paths.csv[1])
-colnames(first_file)
-
-#function to read and combine csv files
-read_and_combine_csv <- function(file_path) {
-  tryCatch(
-    {
-      # Read the CSV file
-      data <- read_csv(file_path)
-      
-      
-      # Remove the first row
-      data <- data[-1, ]
-      
-      # Columns to convert to double
-      cols_to_convert <- c("Temp", "SpCond", "Sal", "Depth", "Chl...6", "Chl...7", "BGA-PC...8", "BGA-PC...9", "Battery")
-      
-      # Convert specified columns to double
-      data[, cols_to_convert] <- lapply(data[, cols_to_convert], as.numeric)
-      
-      # Extract the file name without the ".csv" extension
-      file_name <- tools::file_path_sans_ext(basename(file_path))
-      
-      # Add a new column "FileName" to the data frame, remove formats
-      data <- data %>% mutate(FileName = file_name)%>% 
-        clean_names() #clean headings 
-      
-      
-      return(data)
-    },
-    error = function(e) {
-      cat("Error occurred while processing file:", file_path, "\n")
-      message("Error Message:", conditionMessage(e), "\n")
-      traceback()
-      return(NULL) # Return NULL to indicate failure
-    }
-  )
+read_c3_file <- function(file) {
+  
+  readr::read_csv(
+    file,
+    skip = 5,
+    col_names = c("date_time", "PC", "chl", "depth", "temp")
+  ) %>%
+    dplyr::slice(4:n()) %>%
+    dplyr::select(date_time, PC, chl, depth, temp) %>%
+    
+    # Force numeric conversion 
+    dplyr::mutate(
+      dplyr::across(
+        c(PC, chl, depth, temp),
+        ~ as.numeric(.)    #readr::parse_number alternaitve code
+      )
+    ) %>%
+    
+    dplyr::mutate(source_file = basename(file))
 }
 
-# Read all csv files and combine them
- df_ysi_cruz <- map_df(file_paths.csv, read_and_combine_csv) %>% 
-    rename(chl_rfu = chl_7,
-         bga_rfu = bga_pc_9) 
+
+#read files
+
+c3_cruise_files <- purrr::map_dfr(file_paths_csv, read_c3_file) 
+
+c3_cruise_files_b <- c3_cruise_files  %>% 
+  mutate(
+    date_time = as.character(date_time),
+    date_time_parsed = parse_date_time(
+      date_time,
+      orders = c(
+  "Ymd HMS",
+  "Ymd HM",
+  "dmy HMS",
+  "dmy HM",
+  "dmY HMS",
+  "mdy HMS",
+  "mdy HM"
+))) %>%
+  mutate(year= year(date_time_parsed),
+         month = month(date_time_parsed),
+         mmyy = format(date_time_parsed, "%m-%y")) %>% 
+  arrange(date_time) %>% 
+  clean_names()
+
+
+#check files
+table(c3_cruise_files_b$source_file)
+
+```
+
+
++   attach timestamps to different files
+
++   27 June 2023 cruz
+```{r}
+
+c327jun_2023 <- c3_cruise_files_b %>%
+  filter(source_file %in% "c3_CR_27_June_2023.csv") %>% 
+  mutate(date_time = as.POSIXct(date_time, format = "%m/%d/%y %H:%M:%S"),
+         code = case_when(
+           (date_time >= as.POSIXct("2023-06-27 11:26:00") & date_time <= as.POSIXct("2023-06-27 11:44:00")) ~ "CHL1",
+           (date_time >= as.POSIXct("2023-06-27 11:53:00") & date_time <= as.POSIXct("2023-06-27 12:49:00")) ~ "CHL2",
+           (date_time >= as.POSIXct("2023-06-27 12:51:00") & date_time <= as.POSIXct("2023-06-27 14:08:00")) ~ "BG7",
+           (date_time >= as.POSIXct("2023-06-27 14:26:00") & date_time <= as.POSIXct("2023-06-27 14:40:00")) ~ "CHL3",
+           (date_time >= as.POSIXct("2023-06-27 14:42:00") & date_time <= as.POSIXct("2023-06-27 14:59:00")) ~ "CHL4",
+           (date_time >= as.POSIXct("2023-06-27 15:02:00") & date_time <= as.POSIXct("2023-06-27 15:18:00")) ~ "CHL5",
+           (date_time >= as.POSIXct("2023-06-27 15:22:00") & date_time <= as.POSIXct("2023-06-27 15:58:00")) ~ "CHL6",
+           (date_time >= as.POSIXct("2023-06-27 15:59:00") & date_time <= as.POSIXct("2023-06-27 16:28:00")) ~ "CHL7",
+           (date_time >= as.POSIXct("2023-06-27 16:29:00") & date_time <= as.POSIXct("2023-06-27 18:08:00")) ~ "CHL8",
+           (date_time >= as.POSIXct("2023-06-27 18:10:00") & date_time <= as.POSIXct("2023-06-27 19:14:00")) ~ "CHL9",
+           (date_time >= as.POSIXct("2023-06-27 19:17:00") & date_time <= as.POSIXct("2023-06-27 20:08:00")) ~ "CHL10",
+  
+           TRUE ~ NA_character_
+         ))
+
+c327jun_2023_clean <- c327jun_2023 %>% 
+  filter(!is.na(code)) %>% 
+  arrange(date_time)
+
+
+```
+
++ 28 June 2023 data
+```{r}
+
+
+
+c328jun_2023 <- c3_cruise_files_b %>%
+  filter(source_file %in% "Turner_C3_28June2023_cruise.csv") %>% 
+  arrange(date_time) %>% 
+  mutate(date_time = as.POSIXct(date_time, format = "%m/%d/%y %H:%M:%S"),
+         code = case_when(
+          (date_time >= as.POSIXct("2023-06-28 7:52:00")  & date_time <= as.POSIXct("2023-06-28 8:35:00"))  ~ "CHL11",
+          (date_time >= as.POSIXct("2023-06-28 8:37:00")  & date_time <= as.POSIXct("2023-06-28 9:36:00")) ~ "CHL12",
+          (date_time >= as.POSIXct("2023-06-28 9:40:00")  & date_time <= as.POSIXct("2023-06-28 10:05:00")) ~ "CHL13",
+         (date_time >= as.POSIXct("2023-06-28 10:09:00") & date_time <= as.POSIXct("2023-06-28 11:12:00")) ~ "CHL14",
+           (date_time >= as.POSIXct("2023-06-28 11:29:00") & date_time <= as.POSIXct("2023-06-28 12:24:00")) ~ "CHL15",
+        (date_time >= as.POSIXct("2023-06-28 12:28:00") & date_time <= as.POSIXct("2023-06-28 13:46:00")) ~ "CHL16",
+           (date_time >= as.POSIXct("2023-06-28 13:47:00") & date_time <= as.POSIXct("2023-06-28 14:58:00")) ~ "CHL17",
+           (date_time >= as.POSIXct("2023-06-28 15:02:00") & date_time <= as.POSIXct("2023-06-28 15:34:00")) ~ "CHL18",
+           (date_time >= as.POSIXct("2023-06-28 15:36:00") & date_time <= as.POSIXct("2023-06-28 16:16:00")) ~ "CHL19",
+           (date_time >= as.POSIXct("2023-06-28 16:19:00") & date_time <= as.POSIXct("2023-06-28 17:04:00")) ~ "CHL20",
+           (date_time >= as.POSIXct("2023-06-28 17:05:00") & date_time <= as.POSIXct("2023-06-28 17:19:00")) ~ "CHL21",
+           (date_time >= as.POSIXct("2023-06-28 17:22:00") & date_time <= as.POSIXct("2023-06-28 18:26:00")) ~ "CHL22",   
+           (date_time >= as.POSIXct("2023-06-28 18:28:00") & date_time <= as.POSIXct("2023-06-28 20:05:00")) ~ "CHL23",
+            (date_time >= as.POSIXct("2023-06-28 20:10:00") & date_time <= as.POSIXct("2023-06-28 20:30:00")) ~ "CHL24",
+           (date_time >= as.POSIXct("2023-06-28 20:52:00") & date_time <= as.POSIXct("2023-06-28 21:15:00")) ~ "CHL25",
+           (date_time >= as.POSIXct("2023-06-28 21:23:00") & date_time <= as.POSIXct("2023-06-28 21:55:00")) ~ "CHL26",
+           TRUE ~ NA_character_
+         ))
+
+
  
 
+```
+
+
+
++   Join 27 and 28 June cruise data
+```{r}
+
+
+ c3_2023_clean <- bind_rows(c327jun_2023,c328jun_2023)  %>% 
+    filter(!is.na(code))
+
+#write.csv(c3_2023_clean, file="c3_2023_clean.csv") 
 
 
 
 ```
 
-+     2025 March-April
++ Frequency distribution for c3 cuise dataset
+
 
 ```{r}
 
-crap25 <- file_paths.csv[4] %>% 
-    rename(chl_rfu = chl_7,
-         bga_rfu = bga_pc_9) 
- 
+
+c3_2023_clean %>% 
+  filter(chl > 0) %>% 
+  mutate(code = as.factor(code)) %>% 
+ggplot(aes(x = chl)) +
+  geom_histogram(bins = 30, binwidth = 2, boundary = 0, fill = "steelblue", color = "black") +
+  #facet_wrap(~ code) +
+  labs(x = "Chlorophyll (RFU)", y = "Frequency") +
+  theme_bw() +
+  theme(text = element_text(size = 15, colour = "black"),
+        axis.text.x = element_text(size=20, angle = 45, hjust = 1, vjust = 1))+
+ scale_x_continuous(
+  breaks = scales::pretty_breaks(n = 6)  #ggplot makes breaks based on data
+)
+
+
+ggsave(file="plots/c3/2023_plots/c3_2023cruz_gen_freq_distribution.png", width = 10, height = 12, dpi = 300)
 
 
 
 
-fifth_file <- 
+
+
 
 ```
 
+
+
+
++   Remove outliers from 2023 cruise c3 data
+
+```{r}
+
+c3_23_outlier_detect <- multidetect(data = c3_2023_clean, 
+                                var = "chl", 
+                                var_col = "code",
+                                multiple = TRUE,
+                                methods = c("adjbox", "iqr", "hampel","jknife",
+                                            "seqfences", "mixediqr",
+                                            "distboxplot", "semiqr",
+                                            "zscore", "logboxplot", "medianrule"),
+                       silence_true_errors = TRUE, 
+                       missingness = 0.1,
+                       sdm = FALSE,
+                       na.inform = TRUE)
+  
+  
+
+#Visualize the number of outliers detected by each method
+
+ggoutliers(c3_23_outlier_detect,
+                        select = unique(c3_2023_clean$code),
+                        color='purple',
+                        desc = TRUE,
+                        ncol = 10,
+                        nrow = 10)
+
+ggsave(file = "plots/c3/2023_plots/outliers_per_site.png", width = 10, height = 10, dpi = 300)
+
+
+#Obtaining quality controlled dataset using loess method or data labeling
+
+
+out_qc_loess23 <- extract_clean_data(refdata = c3_2023_clean, 
+            outliers = c3_23_outlier_detect, loess = TRUE,
+            var_col = "code"
+            )  #set threshold to 0.8 to remove the very strong outliers only
+
+#clean dataset
+nrow(out_qc_loess23)
+
+#reference data
+nrow(c3_2023_clean)
+
+out_qc_labeled23 <- classify_data(refdata = c3_2023_clean, 
+                                  var_col = "code",
+                                outliers = c3_23_outlier_detect)
+
+
+#Visualize labelled quality controlled dataset
+
+ggenvironmentalspace(out_qc_labeled23, 
+                     type = '1D',
+                     ggxangle = 45, 
+                     ncol = 10,
+                     nrow = 15,
+                     scalecolor = 'viridis',
+                     xhjust = 1,
+                     legend_position = 'blank',
+                     ylab = "Number of records",
+                     xlab = "Outlier labels")
+
+
+ggsave(filename = "plots/c3/2023_plots/filtered_site_data.png", width = 14, height = 10, dpi = 300)
+
+
+
+#labelled outlier or not 
+labeled23 <- classify_data(refdata = c3_2023_clean, 
+                         var_col = "code",
+                         outliers = c3_23_outlier_detect)
+
+
+
+#plot clean dataset
+
+out_qc_loess23 %>% 
+mutate(code = as.factor(code)) %>% 
+ggplot(aes(x = chl)) +
+  geom_histogram(bins = 30, binwidth = 2, boundary = 0, fill = "steelblue", color = "black") +
+facet_wrap(~ code, scales = "free_y")+
+  labs(x = "Chlorophyll (ug/l)", y = "Frequency") +
+  theme_bw() +
+  theme(text = element_text(size = 10, colour = "black"),
+        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))+
+ scale_x_continuous(
+  breaks = scales::pretty_breaks(n = 6)  #ggplot makes breaks based on data
+)
+
+ggsave(file="plots/2023_plots/JUN2023_loessfilter_Sites_freq_distribution.png", width = 12, height = 10, dpi = 300)
+
+
+
+
+
+
+
+
+```
+
+The low value of chl at CHL22 is 97ug/l. It is not removed but still is high enough compared to many other sites... The threshold for this cruise is flexible
+
+Chl at chl4 is also somewhat variable but the values are over all high 
+
++ Final filtering of points for Jun 2023 cruise
+```{r}
+
+final_crjun_2023_df <- out_qc_loess23 %>%
+  group_by(code, year) %>%
+  slice_max(order_by = chl, n = 3) %>%
+  summarise(
+    chl = mean(chl, na.rm = TRUE),
+    pc = mean(pc, na.rm = TRUE),
+    temp = mean(temp, na.rm = TRUE),
+    depth = mean(depth, na.rm = TRUE),
+    source_file  = unique(source_file),
+  ) 
+
+
+
+
+```
+
+
+
+
+
+
+
++     July 2024
+
+```{r}
+
+c3_jul2024 <- c3_cruise_files_b %>%
+  filter(source_file %in% "c3_CR_24JUL2024.csv") %>% 
+  mutate(date_time = as.POSIXct(date_time, format = "%m/%d/%y %H:%M:%S"),
+         code = case_when(
+        (date_time >= as.POSIXct("2024-07-18 14:29:00") & date_time <= as.POSIXct("2024-07-18 15:00:00")) ~ "CHL26",
+        (date_time >= as.POSIXct("2024-07-18 15:37:00") & date_time <= as.POSIXct("2024-07-18 15:46:00")) ~ "CHL25",
+        (date_time >= as.POSIXct("2024-07-18 17:12:00") & date_time <= as.POSIXct("2024-07-18 17:31:00")) ~ "CHL24",
+        (date_time >= as.POSIXct("2024-07-18 18:57:00") & date_time <= as.POSIXct("2024-07-18 19:15:00")) ~ "CHL3",
+           (date_time >= as.POSIXct("2024-07-18 19:37:00") & date_time <= as.POSIXct("2024-07-18 19:50:00")) ~ "CHL4",
+           (date_time >= as.POSIXct("2024-07-18 20:15:00") & date_time <= as.POSIXct("2024-07-18 20:30:00")) ~ "CHL5",
+           (date_time >= as.POSIXct("2024-07-18 20:48:00") & date_time <= as.POSIXct("2024-07-18 21:05:00")) ~ "CHL6",
+           (date_time >= as.POSIXct("2024-07-18 21:51:00") & date_time <= as.POSIXct("2024-07-18 22:15:00")) ~ "CHL7",
+        
+           (date_time >= as.POSIXct("2024-07-19 07:48:00") & date_time <= as.POSIXct("2024-07-19 08:09:00")) ~ "BG10",
+           (date_time >= as.POSIXct("2024-07-19 09:27:00") & date_time <= as.POSIXct("2024-07-19 09:50:00")) ~ "CHL9",
+          (date_time >= as.POSIXct("2024-07-19 10:45:00") & date_time <= as.POSIXct("2024-07-19 11:02:00")) ~ "CHL10",
+        (date_time >= as.POSIXct("2024-07-19 11:45:00")  & date_time <= as.POSIXct("2024-07-19 11:57:00"))  ~ "BG13",
+        (date_time >= as.POSIXct("2024-07-19 14:20:00")  & date_time <= as.POSIXct("2024-07-19 14:40:00")) ~ "CHL19",
+        (date_time >= as.POSIXct("2024-07-19 16:02:00")  & date_time <= as.POSIXct("2024-07-19 16:13:00")) ~ "CHL18",
+        (date_time >= as.POSIXct("2024-07-19 16:52:00") & date_time <= as.POSIXct("2024-07-19 17:13:00")) ~ "CHL15",
+        (date_time >= as.POSIXct("2024-07-19 17:50:00") & date_time <= as.POSIXct("2024-07-19 18:10:00")) ~ "CNL1",
+        
+        (date_time >= as.POSIXct("2024-07-20 08:31:00") & date_time <= as.POSIXct("2024-07-20 08:51:00")) ~ "CNL2",
+        (date_time >= as.POSIXct("2024-07-20 09:52:00") & date_time <= as.POSIXct("2024-07-20 10:06:00")) ~ "CHL12",
+        (date_time >= as.POSIXct("2024-07-20 10:46:00") & date_time <= as.POSIXct("2024-07-20 11:00:00")) ~ "CHL13",
+        (date_time >= as.POSIXct("2024-07-20 12:01:00") & date_time <= as.POSIXct("2024-07-20 12:15:00")) ~ "BG16",
+        (date_time >= as.POSIXct("2024-07-20 14:29:00") & date_time <= as.POSIXct("2024-07-20 14:39:00")) ~ "CHL20",
+        (date_time >= as.POSIXct("2024-07-20 15:35:00") & date_time <= as.POSIXct("2024-07-20 15:41:00")) ~ "CHL21",
+        (date_time >= as.POSIXct("2024-07-20 18:16:00") & date_time <= as.POSIXct("2024-07-20 18:25:00")) ~ "CHL27",
+        (date_time >= as.POSIXct("2024-07-20 19:00:00") & date_time <= as.POSIXct("2024-07-20 19:15:00")) ~ "BG5",
+           
+           
+           TRUE ~ NA_character_
+         ))
+
+c3_jul2024_clean <- c3_jul2024 %>% 
+  filter(!is.na(code))
+
+
+
+
+
+```
+
+
+
+
+
++   Frequency distribution for c3 2024 July cruise dataset
+
+
+
+```{r}
+
+#Keeping chl values > 0
+
+c3_jul2024_clean %>% 
+  filter(chl > 0) %>% 
+  mutate(code = as.factor(code)) %>% 
+ggplot(aes(x = chl)) +
+  geom_histogram(bins = 30, binwidth = 2, boundary = 0, fill = "steelblue", color = "black") +
+  #facet_wrap(~ code) +
+  labs(x = "Chlorophyll (RFU)", y = "Frequency") +
+  theme_bw() +
+  theme(text = element_text(size = 15, colour = "black"),
+        axis.text.x = element_text(size=14, angle = 45, hjust = 1, vjust = 1))+
+ scale_x_continuous(
+  breaks = scales::pretty_breaks(n = 6)  #ggplot makes breaks based on data
+)
+
+
+ggsave(file="plots/c3/2024_plots/c3_2024JULcruz_site_freq_distribution.png", width = 10, height = 12, dpi = 300)
+
+
+
+
+
+
+
+
+```
++   Remove outliers from 2024 july cruise c3 data
+
+```{r}
+
+
+c3_j24_outlier_detect <- multidetect(data = c3_jul2024_clean, 
+                                var = "chl", 
+                                var_col = "code",
+                                multiple = TRUE,
+                                methods = c("adjbox", "iqr", "hampel","jknife",
+                                            "seqfences", "mixediqr",
+                                            "distboxplot", "semiqr",
+                                            "zscore", "logboxplot", "medianrule"),
+                       silence_true_errors = TRUE, 
+                       missingness = 0.1,
+                       sdm = FALSE,
+                       na.inform = TRUE)
+  
+  
+
+#Visualize the number of outliers detected by each method
+
+ggoutliers(c3_j24_outlier_detect,
+                        select = unique(c3_jul2024_clean$code),
+                        color='purple',
+                        desc = TRUE,
+                        ncol = 5,
+                        nrow = 10)
+
+ggsave(file = "plots/c3/2024_plots/outliers_per_site.png", width = 10, height = 20, dpi = 300)
+
+
+#Obtaining quality controlled dataset using loess method or data labeling
+
+
+out_qc_loessj24 <- extract_clean_data(refdata = c3_jul2024_clean, 
+            outliers = c3_j24_outlier_detect, loess = TRUE,
+            var_col = "code"
+            )  #set threshold to 0.8 to remove the very strong outliers only
+
+#clean dataset
+nrow(out_qc_loessj24)
+
+#reference data
+nrow(c3_jul2024_clean)
+
+out_qc_labeled24 <- classify_data(refdata = c3_jul2024_clean, 
+                                  var_col = "code",
+                                outliers = c3_j24_outlier_detect)
+
+
+#Visualize labelled quality controlled dataset
+
+ggenvironmentalspace(out_qc_labeled24, 
+                     type = '1D',
+                     ggxangle = 45, 
+                     ncol = 5,
+                     nrow = 15,
+                     scalecolor = 'viridis',
+                     xhjust = 1,
+                     legend_position = 'blank',
+                     ylab = "Number of records",
+                     xlab = "Outlier labels")
+
+
+ggsave(filename = "plots/c3/2024_plots/filtered_site_data.png", width = 14, height = 14, dpi = 300)
+
+
+
+#labelled outlier or not 
+labeled24 <- classify_data(refdata = c3_jul2024_clean, 
+                         var_col = "code",
+                         outliers = c3_j24_outlier_detect)
+
+
+
+#plot clean dataset
+
+out_qc_loessj24 %>% 
+mutate(code = as.factor(code)) %>% 
+ggplot(aes(x = chl)) +
+  geom_histogram(bins = 30, binwidth = 2, boundary = 0, fill = "steelblue", color = "black") +
+facet_wrap(~ code)+
+  labs(x = "Chlorophyll (ug/l)", y = "Frequency") +
+  theme_bw() +
+  theme(text = element_text(size = 10, colour = "black"),
+        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))+
+ scale_x_continuous(
+  breaks = scales::pretty_breaks(n = 6)  #ggplot makes breaks based on data
+)
+
+ggsave(file="plots/2024_plots/c3_2024_loessfilter_Sites_freq_distribution.png", width = 10, height = 12, dpi = 300)
+
+
+
+
+
+
+```
+
+Notes: CHL21 is problematic... high variation
+
+
+
++ Final July cruz 2024 dataset
+
+```{r}
+
+
+final_crjul_2024_df <- out_qc_loessj24 %>%
+  group_by(code, year) %>%
+  summarise(
+    chl = mean(chl, na.rm = TRUE),
+    pc = mean(pc, na.rm = TRUE),
+    temp = mean(temp, na.rm = TRUE),
+    depth = mean(depth, na.rm = TRUE),
+    source_file  = unique(source_file),
+  ) 
+
+
+
+final_crjul_2024_df2 <- out_qc_loessj24 %>%
+  group_by(code, year) %>%
+  slice_max(order_by = chl, n = 3) %>%
+  summarise(
+    chl = mean(chl, na.rm = TRUE),
+    pc = mean(pc, na.rm = TRUE),
+    temp = mean(temp, na.rm = TRUE),
+    depth = mean(depth, na.rm = TRUE),
+    source_file  = unique(source_file),
+  ) 
+
+
+
+
+
+```
+
+For final dataset, I tried the top average vs averaging all cleaned values. The former over estimates chl in gulf areas that are more turbid while the latter averages better to provide a better comparison across neigbouring sites. So, I will just do the average of the cleaned values after removing outliers.
+
+
+
+
++     Nov 2024
+
+```{r}
+
+c3_nov2024 <- c3_cruise_files_b %>%
+  filter(source_file %in% "c3_CR_NOV2024.csv") %>% 
+  mutate(date_time = as.POSIXct(date_time, format = "%m/%d/%Y %H:%M"),
+         code = case_when(
+        (date_time >= as.POSIXct("2024-11-07 09:35:00") & date_time <= as.POSIXct("2024-11-07 09:43:00")) ~ "CHL26",
+        (date_time >= as.POSIXct("2024-11-07 11:06:00") & date_time <= as.POSIXct("2024-11-07 11:35:00")) ~ "CHL25",
+        (date_time >= as.POSIXct("2024-11-07 12:27:00") & date_time <= as.POSIXct("2024-11-07 12:55:00")) ~ "CHL24",
+        (date_time >= as.POSIXct("2024-11-07 14:46:00") & date_time <= as.POSIXct("2024-11-07 14:56:00")) ~ "BG5",
+        (date_time >= as.POSIXct("2024-11-07 16:28:00") & date_time <= as.POSIXct("2024-11-07 16:48:00")) ~ "CHL27",
+        (date_time >= as.POSIXct("2024-11-07 17:40:00") & date_time <= as.POSIXct("2024-11-07 18:04:00")) ~ "CHL3",
+        (date_time >= as.POSIXct("2024-11-07 18:30:00") & date_time <= as.POSIXct("2024-11-07 18:56:00")) ~ "CHL4",
+        (date_time >= as.POSIXct("2024-11-07 19:24:00") & date_time <= as.POSIXct("2024-11-07 19:40:00")) ~ "CHL5",
+        (date_time >= as.POSIXct("2024-11-07 20:05:00") & date_time <= as.POSIXct("2024-11-07 20:30:00")) ~ "CHL6",
+        
+           (date_time >= as.POSIXct("2024-11-08 08:06:00") & date_time <= as.POSIXct("2024-11-08 08:24:00")) ~ "BG10",
+           
+        (date_time >= as.POSIXct("2024-11-08 09:29:00")  & date_time <= as.POSIXct("2024-11-08 09:50:00")) ~ "CHL9",
+        (date_time >= as.POSIXct("2024-11-08 10:07:00")  & date_time <= as.POSIXct("2024-11-08 10:26:00"))  ~ "CHL7",
+        (date_time >= as.POSIXct("2024-11-08 11:22:00")  & date_time <= as.POSIXct("2024-11-08 11:42:00")) ~ "CHL10",
+        (date_time >= as.POSIXct("2024-11-08 12:20:00")  & date_time <= as.POSIXct("2024-11-08 12:34:00")) ~ "BG13",
+        (date_time >= as.POSIXct("2024-11-08 14:00:00") & date_time <= as.POSIXct("2024-11-08 14:23:00")) ~ "CHL19",
+        (date_time >= as.POSIXct("2024-11-08 14:59:00") & date_time <= as.POSIXct("2024-11-08 15:20:00")) ~ "CHL18",
+        (date_time >= as.POSIXct("2024-11-08 15:51:00") & date_time <= as.POSIXct("2024-11-08 16:05:00")) ~ "BG16",
+        (date_time >= as.POSIXct("2024-11-08 17:13:00") & date_time <= as.POSIXct("2024-11-08 17:29:00")) ~ "CHL15",
+        (date_time >= as.POSIXct("2024-11-08 17:55:00") & date_time <= as.POSIXct("2024-11-08 18:14:00")) ~ "CNL1",
+        
+        
+        (date_time >= as.POSIXct("2024-11-09 07:40:00") & date_time <= as.POSIXct("2024-11-09 08:14:00")) ~ "CNL2",
+        (date_time >= as.POSIXct("2024-11-09 09:20:00") & date_time <= as.POSIXct("2024-11-09 09:47:00")) ~ "CHL12",
+        (date_time >= as.POSIXct("2024-11-09 10:56:00") & date_time <= as.POSIXct("2024-11-09 11:20:00")) ~ "CHL13",
+        (date_time >= as.POSIXct("2024-11-09 15:52:00") & date_time <= as.POSIXct("2024-11-09 16:09:00")) ~ "CHL20",
+        (date_time >= as.POSIXct("2024-11-09 17:03:00") & date_time <= as.POSIXct("2024-11-09 17:14:00")) ~ "CHL21",
+        (date_time >= as.POSIXct("2024-11-09 17:35:00") & date_time <= as.POSIXct("2024-11-09 17:52:00")) ~ "BG18",
+        (date_time >= as.POSIXct("2024-11-09 19:33:00") & date_time <= as.POSIXct("2024-11-09 19:50:00")) ~ "BG7",
+           
+           
+           TRUE ~ NA_character_
+         ))
+
+c3_nov2024_clean <- c3_nov2024 %>% 
+  filter(!is.na(code))
+
+
+
+
+```
+
+CHL21 data is still quite funky.... 
+
+
++   Frequency distribution for Nov 2024 cruz C3 data
+
+```{r}
+
+c3_nov2024_clean %>% 
+  filter(chl > 0) %>% 
+  mutate(code = as.factor(code)) %>% 
+ggplot(aes(x = chl)) +
+  geom_histogram(bins = 30, binwidth = 2, boundary = 0, fill = "steelblue", color = "black") +
+  facet_wrap(~ code) +
+  labs(x = "Chlorophyll (RFU)", y = "Frequency") +
+  theme_bw() +
+  theme(text = element_text(size = 15, colour = "black"),
+        axis.text.x = element_text(size=14, angle = 45, hjust = 1, vjust = 1))+
+ scale_x_continuous(
+  breaks = scales::pretty_breaks(n = 6)  #ggplot makes breaks based on data
+)
+
+
+ggsave(file="plots/c3/2024_plots/c3_2024NOVcruz_site_freq_distribution.png", width = 10, height = 12, dpi = 300)
+
+```
+
+
++ Removing outliers from Nov cruise data
+
+```{r}
+c3_n24_outlier_detect <- multidetect(data = c3_nov2024_clean, 
+                                var = "chl", 
+                                var_col = "code",
+                                multiple = TRUE,
+                                methods = c("adjbox", "iqr", "hampel","jknife",
+                                            "seqfences", "mixediqr",
+                                            "distboxplot", "semiqr",
+                                            "zscore", "logboxplot", "medianrule"),
+                       silence_true_errors = TRUE, 
+                       missingness = 0.1,
+                       sdm = FALSE,
+                       na.inform = TRUE)
+  
+  
+
+#Visualize the number of outliers detected by each method
+
+ggoutliers(c3_n24_outlier_detect,
+                        select = unique(c3_nov2024_clean$code),
+                        color='purple',
+                        desc = TRUE,
+                        ncol = 10,
+                        nrow = 10)
+
+ggsave(file = "plots/c3/2024_plots/outliersNOV_per_site.png", width = 10, height = 20, dpi = 300)
+
+
+#Obtaining quality controlled dataset using loess method or data labeling
+
+
+out_qc_loessN24 <- extract_clean_data(refdata = c3_nov2024_clean, 
+            outliers = c3_n24_outlier_detect, loess = TRUE,
+            var_col = "code"
+            )  #set threshold to 0.8 to remove the very strong outliers only
+
+#clean dataset
+nrow(out_qc_loessN24)
+
+#reference data
+nrow(c3_nov2024_clean)
+
+out_qc_labeledN24 <- classify_data(refdata = c3_nov2024_clean, 
+                                  var_col = "code",
+                                outliers = c3_n24_outlier_detect)
+
+
+#Visualize labelled quality controlled dataset
+
+ggenvironmentalspace(out_qc_labeledN24, 
+                     type = '1D',
+                     ggxangle = 45, 
+                     ncol = 10,
+                     nrow = 15,
+                     scalecolor = 'viridis',
+                     xhjust = 1,
+                     legend_position = 'blank',
+                     ylab = "Number of records",
+                     xlab = "Outlier labels")
+
+
+ggsave(filename = "plots/c3/2024_plots/filtered_siteNOV_data.png", width = 14, height = 14, dpi = 300)
+
+
+
+#labelled outlier or not 
+labeledN24 <- classify_data(refdata = c3_nov2024_clean, 
+                         var_col = "code",
+                         outliers = c3_n24_outlier_detect)
+
+
+
+#plot clean dataset
+
+out_qc_loessN24 %>% 
+mutate(code = as.factor(code)) %>% 
+ggplot(aes(x = chl)) +
+  geom_histogram(bins = 30, binwidth = 2, boundary = 0, fill = "steelblue", color = "black") +
+facet_wrap(~ code, scales = "free_y")+
+  labs(x = "Chlorophyll (ug/l)", y = "Frequency") +
+  theme_bw() +
+  theme(text = element_text(size = 10, colour = "black"),
+        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))+
+ scale_x_continuous(
+  breaks = scales::pretty_breaks(n = 6)  #ggplot makes breaks based on data
+)
+
+ggsave(file="plots/2024_plots/c3_2024_loessfilter_SitesNOV_freq_distribution.png", width = 10, height = 12, dpi = 300)
+
+
+
+```
+
+CHL21 is also very problematic here
+
+
+
++ Get final dataset
+
+```{r}
+
+
+final_crnov_2024_df <- out_qc_loessN24 %>%
+  group_by(code, year) %>%
+  summarise(
+    chl = mean(chl, na.rm = TRUE),
+    pc = mean(pc, na.rm = TRUE),
+    temp = mean(temp, na.rm = TRUE),
+    depth = mean(depth, na.rm = TRUE),
+    source_file  = unique(source_file),
+  ) 
+
+
+```
+
+
++ April 2025 time stamps
+
+```{r}
+
+c3_apr2025 <- c3_cruise_files_b %>%
+  filter(source_file %in% "c3_CR_APR2025.csv") %>% 
+  mutate(date_time = as.POSIXct(date_time, format = "%m/%d/%y %H:%M:%S"),
+         code = case_when(
+        (date_time >= as.POSIXct("2025-04-05 08:37:00") & date_time <= as.POSIXct("2025-04-05 08:45:00")) ~ "BG5",
+        (date_time >= as.POSIXct("2025-04-05 10:40:00") & date_time <= as.POSIXct("2025-04-05 11:00:00")) ~ "CHL27",
+        
+        (date_time >= as.POSIXct("2025-04-05 11:33:00") & date_time <= as.POSIXct("2025-04-05 11:36:00")) ~ "CHL1",
+        (date_time >= as.POSIXct("2025-04-05 11:38:00") & date_time <= as.POSIXct("2025-04-05 11:42:00")) ~ "CHL2",
+        (date_time >= as.POSIXct("2025-04-05 13:08:00") & date_time <= as.POSIXct("2025-04-05 13:40:00")) ~ "BG7",
+        (date_time >= as.POSIXct("2025-04-05 14:54:00") & date_time <= as.POSIXct("2025-04-05 15:02:00")) ~ "CHL3",
+        (date_time >= as.POSIXct("2025-04-05 15:52:00") & date_time <= as.POSIXct("2025-04-05 16:00:00")) ~ "CHL4",
+        (date_time >= as.POSIXct("2025-04-05 16:40:00") & date_time <= as.POSIXct("2025-04-05 17:00:00")) ~ "CHL5",
+        (date_time >= as.POSIXct("2025-04-05 17:24:00")  & date_time <= as.POSIXct("2025-04-05 17:44:00")) ~ "CHL6",
+        (date_time >= as.POSIXct("2025-04-05 18:19:00")  & date_time <= as.POSIXct("2025-04-05 18:37:00"))  ~ "CHL7",
+        
+        (date_time >= as.POSIXct("2025-04-06 17:55:00")  & date_time <= as.POSIXct("2025-04-06 18:15:00")) ~ "BG10",
+        (date_time >= as.POSIXct("2025-04-06 19:03:00")  & date_time <= as.POSIXct("2025-04-06 19:30:00")) ~ "CHL9",
+        
+        (date_time >= as.POSIXct("2025-04-07 09:16:00") & date_time <= as.POSIXct("2025-04-07 09:28:00")) ~ "CHL19",
+        (date_time >= as.POSIXct("2025-04-07 10:12:00") & date_time <= as.POSIXct("2025-04-07 10:24:00")) ~ "CHL18",
+        (date_time >= as.POSIXct("2025-04-07 11:14:00") & date_time <= as.POSIXct("2025-04-07 11:26:00")) ~ "CHL15",
+        (date_time >= as.POSIXct("2025-04-07 12:06:00") & date_time <= as.POSIXct("2025-04-07 12:30:00")) ~ "CNL1",
+        (date_time >= as.POSIXct("2025-04-07 15:18:00") & date_time <= as.POSIXct("2025-04-07 15:38:00")) ~ "CNL2",
+        (date_time >= as.POSIXct("2025-04-07 17:00:00") & date_time <= as.POSIXct("2025-04-07 17:30:00")) ~ "CHL12",
+        (date_time >= as.POSIXct("2025-04-07 07:09:00") & date_time <= as.POSIXct("2025-04-07 07:17:00")) ~ "BG13",
+        (date_time >= as.POSIXct("2025-04-07 17:47:00") & date_time <= as.POSIXct("2025-04-07 18:05:00")) ~ "CHL13",
+        
+        
+        (date_time >= as.POSIXct("2025-04-08 07:20:00") & date_time <= as.POSIXct("2025-04-08 07:43:00")) ~ "BG16",
+        (date_time >= as.POSIXct("2025-04-08 10:37:00") & date_time <= as.POSIXct("2025-04-08 10:45:00")) ~ "CHL20",
+        (date_time >= as.POSIXct("2025-04-08 11:53:00") & date_time <= as.POSIXct("2025-04-08 12:03:00")) ~ "CHL21",
+        (date_time >= as.POSIXct("2025-04-08 12:58:00") & date_time <= as.POSIXct("2025-04-08 13:10:00")) ~ "CHL22",
+        (date_time >= as.POSIXct("2025-04-08 13:28:00") & date_time <= as.POSIXct("2025-04-08 13:40:00")) ~ "BG18",
+        (date_time >= as.POSIXct("2025-04-08 14:25:00") & date_time <= as.POSIXct("2025-04-08 14:35:00")) ~ "CHL23B",
+        (date_time >= as.POSIXct("2025-04-08 16:12:00") & date_time <= as.POSIXct("2025-04-08 16:29:00")) ~ "CHL24",
+           
+           
+           TRUE ~ NA_character_
+         ))
+
+c3_apr2025_clean <- c3_apr2025 %>% 
+  filter(!is.na(code))
+
+
+
+
+
+
+
+```
+
+
+
++   Frequency distribution for April 2025 cruz C3 data
+
+```{r}
+
+c3_apr2025_clean %>% 
+  filter(chl > 0) %>% 
+  mutate(code = as.factor(code)) %>% 
+ggplot(aes(x = chl)) +
+  geom_histogram(bins = 30, binwidth = 2, boundary = 0, fill = "steelblue", color = "black") +
+  facet_wrap(~ code) +
+  labs(x = "Chlorophyll (RFU)", y = "Frequency") +
+  theme_bw() +
+  theme(text = element_text(size = 15, colour = "black"),
+        axis.text.x = element_text(size=14, angle = 45, hjust = 1, vjust = 1))+
+ scale_x_continuous(
+  breaks = scales::pretty_breaks(n = 6)  #ggplot makes breaks based on data
+)
+
+
+ggsave(file="plots/c3/2025_plots/c3_2025APRcruz_site_freq_distribution.png", width = 10, height = 10, dpi = 300)
+
+```
+
+
+
++ Removing outliers from April cruise data
+
+```{r}
+
+c3_Apr25_outlier_detect <- multidetect(data = c3_apr2025_clean, 
+                                var = "chl", 
+                                var_col = "code",
+                                multiple = TRUE,
+                                methods = c("adjbox", "iqr", "hampel","jknife",
+                                            "seqfences", "mixediqr",
+                                            "distboxplot", "semiqr",
+                                            "zscore", "logboxplot", "medianrule"),
+                       silence_true_errors = TRUE, 
+                       missingness = 0.1,
+                       sdm = FALSE,
+                       na.inform = TRUE)
+  
+  
+
+#Visualize the number of outliers detected by each method
+
+ggoutliers(c3_Apr25_outlier_detect,
+                        select = unique(c3_apr2025_clean$code),
+                        color='purple',
+                        desc = TRUE,
+                        ncol = 10,
+                        nrow = 10)
+
+ggsave(file = "plots/c3/2025_plots/outliersAPR25_per_site.png", width = 10, height = 10, dpi = 300)
+
+
+#Obtaining quality controlled dataset using loess method or data labeling
+
+
+out_qc_loessAPR25 <- extract_clean_data(refdata = c3_apr2025_clean, 
+            outliers = c3_Apr25_outlier_detect, loess = TRUE,
+            var_col = "code"
+            )  #set threshold to 0.8 to remove the very strong outliers only
+
+#clean dataset
+nrow(out_qc_loessAPR25)
+
+#reference data
+nrow(c3_apr2025_clean)
+
+out_qc_labeledAPR25 <- classify_data(refdata = c3_apr2025_clean, 
+                                  var_col = "code",
+                                outliers = c3_Apr25_outlier_detect)
+
+
+#Visualize labelled quality controlled dataset
+
+ggenvironmentalspace(out_qc_labeledAPR25, 
+                     type = '1D',
+                     ggxangle = 45, 
+                     ncol = 10,
+                     nrow = 10,
+                     scalecolor = 'viridis',
+                     xhjust = 1,
+                     legend_position = 'blank',
+                     ylab = "Number of records",
+                     xlab = "Outlier labels")
+
+
+ggsave(filename = "plots/c3/2025_plots/filtered_siteAPR25_data.png", width = 14, height = 10, dpi = 300)
+
+
+
+#labelled outlier or not 
+labeledAPR25 <- classify_data(refdata = c3_apr2025_clean, 
+                         var_col = "code",
+                         outliers = c3_Apr25_outlier_detect)
+
+
+
+#plot clean dataset
+
+out_qc_loessAPR25 %>% 
+mutate(code = as.factor(code)) %>% 
+ggplot(aes(x = chl)) +
+  geom_histogram(bins = 30, binwidth = 2, boundary = 0, fill = "steelblue", color = "black") +
+facet_wrap(~ code, scales = "free_y")+
+  labs(x = "Chlorophyll (ug/l)", y = "Frequency") +
+  theme_bw() +
+  theme(text = element_text(size = 10, colour = "black"),
+        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))+
+ scale_x_continuous(
+  breaks = scales::pretty_breaks(n = 6)  #ggplot makes breaks based on data
+)
+
+ggsave(file="plots/2025_plots/loessfilter_siteAPR_freq_distribution.png", width = 10, height = 10, dpi = 300)
+
+
+
+```
+
+
+
+
+
++ Get final dataset
+
+```{r}
+
+
+final_crapr_2025_df <- out_qc_loessAPR25 %>% 
+  group_by(code, year) %>%
+  summarise(
+    chl = mean(chl, na.rm = TRUE),
+    pc = mean(pc, na.rm = TRUE),
+    temp = mean(temp, na.rm = TRUE),
+    depth = mean(depth, na.rm = TRUE),
+    source_file  = unique(source_file),
+  ) 
+
+
+```
+
+
++ Jun 2025
+
+
+```{r}
+
+
+c3_jun2025 <- c3_cruise_files_b %>%
+  filter(source_file %in% "c3_CR_JUN2025.csv") %>% 
+  mutate(date_time = as.POSIXct(date_time, format = "%m/%d/%Y %H:%M"),
+         code = case_when(
+       
+        (date_time >= as.POSIXct("2025-06-23 07:34:00") & date_time <= as.POSIXct("2025-06-23 08:00:00")) ~ "CHL26",
+        (date_time >= as.POSIXct("2025-06-23 09:06:00") & date_time <= as.POSIXct("2025-06-23 09:17:00")) ~ "CHL25",
+        (date_time >= as.POSIXct("2025-06-23 10:31:00") & date_time <= as.POSIXct("2025-06-23 10:46:00")) ~ "BG5",
+        (date_time >= as.POSIXct("2025-06-23 12:30:00") & date_time <= as.POSIXct("2025-06-23 12:42:00")) ~ "CHL27",
+        
+        (date_time >= as.POSIXct("2025-06-23 13:42:00") & date_time <= as.POSIXct("2025-06-23 13:55:00")) ~ "CHL3",
+        (date_time >= as.POSIXct("2025-06-23 14:18:00") & date_time <= as.POSIXct("2025-06-23 14:23:00")) ~ "BG7",
+        (date_time >= as.POSIXct("2025-06-23 15:12:00") & date_time <= as.POSIXct("2025-06-23 15:17:00")) ~ "CHL2",
+        (date_time >= as.POSIXct("2025-06-23 15:40:00") & date_time <= as.POSIXct("2025-06-23 16:00:00")) ~ "CHL1",
+        (date_time >= as.POSIXct("2025-06-23 17:00:00") & date_time <= as.POSIXct("2025-06-23 17:15:00")) ~ "CHL4",
+        (date_time >= as.POSIXct("2025-06-23 17:29:00") & date_time <= as.POSIXct("2025-06-23 17:38:00")) ~ "CHL5",
+        
+        (date_time >= as.POSIXct("2025-06-23 18:02:00") & date_time <= as.POSIXct("2025-06-23 18:15:00")) ~ "CHL6",
+        (date_time >= as.POSIXct("2025-06-23 18:46:00") & date_time <= as.POSIXct("2025-06-23 18:55:00")) ~ "CHL7",
+        
+        (date_time >= as.POSIXct("2025-06-24 07:30:00") & date_time <= as.POSIXct("2025-06-24 07:48:00")) ~ "BG10",
+        
+        (date_time >= as.POSIXct("2025-06-24 08:52:00")  & date_time <= as.POSIXct("2025-06-24 09:02:00")) ~ "CHL9",
+        (date_time >= as.POSIXct("2025-06-24 10:07:00")  & date_time <= as.POSIXct("2025-06-24 10:20:00"))  ~ "CHL10",
+        (date_time >= as.POSIXct("2025-06-24 10:50:00")  & date_time <= as.POSIXct("2025-06-24 10:58:00")) ~ "BG13",
+        
+        (date_time >= as.POSIXct("2025-06-24 10:50:00") & date_time <= as.POSIXct("2025-06-24 10:58:00")) ~ "BG13",
+        (date_time >= as.POSIXct("2025-06-24 12:23:00") & date_time <= as.POSIXct("2025-06-24 12:33:00")) ~ "CHL19",
+        (date_time >= as.POSIXct("2025-06-24 13:18:00") & date_time <= as.POSIXct("2025-06-24 13:25:00")) ~ "CHL18",
+        (date_time >= as.POSIXct("2025-06-24 14:18:00") & date_time <= as.POSIXct("2025-06-24 14:29:00")) ~ "CHL15",
+        
+     
+        (date_time >= as.POSIXct("2025-06-24 15:09:00") & date_time <= as.POSIXct("2025-06-24 15:28:00")) ~ "CNL1",
+        (date_time >= as.POSIXct("2025-06-24 17:13:00") & date_time <= as.POSIXct("2025-06-24 17:28:00")) ~ "CNL2",
+        (date_time >= as.POSIXct("2025-06-24 18:22:00") & date_time <= as.POSIXct("2025-06-24 18:32:00")) ~ "CHL12",
+        (date_time >= as.POSIXct("2025-06-24 19:53:00") & date_time <= as.POSIXct("2025-06-24 19:59:00")) ~ "CHL13",
+        
+        (date_time >= as.POSIXct("2025-06-25 09:33:00") & date_time <= as.POSIXct("2025-06-25 09:53:00")) ~ "BG16",
+        (date_time >= as.POSIXct("2025-06-25 15:05:00") & date_time <= as.POSIXct("2025-06-25 15:17:00")) ~ "CHL20",
+        (date_time >= as.POSIXct("2025-06-25 16:02:00") & date_time <= as.POSIXct("2025-06-25 16:15:00")) ~ "CHL21",
+        (date_time >= as.POSIXct("2025-06-25 16:26:00") & date_time <= as.POSIXct("2025-06-25 16:34:00")) ~ "CHL22",
+        (date_time >= as.POSIXct("2025-06-25 16:49:00") & date_time <= as.POSIXct("2025-06-25 16:54:00")) ~ "BG18",
+        (date_time >= as.POSIXct("2025-06-25 18:29:00") & date_time <= as.POSIXct("2025-06-25 18:39:00")) ~ "CHL23B",
+        (date_time >= as.POSIXct("2025-06-25 19:15:00") & date_time <= as.POSIXct("2025-06-25 19:30:00")) ~ "CHL24",
+           
+           
+           TRUE ~ NA_character_
+         ))
+
+c3_jun2025_clean <- c3_jun2025 %>% 
+  filter(!is.na(code))
+
+
+
+
+```
+
+
+
+
++   Frequency distribution for June 2025 cruz C3 data
+
+```{r}
+
+c3_jun2025_clean %>% 
+  filter(chl > 0) %>% 
+  mutate(code = as.factor(code)) %>% 
+ggplot(aes(x = chl)) +
+  geom_histogram(bins = 30, binwidth = 2, boundary = 0, fill = "steelblue", color = "black") +
+  #facet_wrap(~ code, scales="free_y") +
+  labs(x = "Chlorophyll (RFU)", y = "Frequency") +
+  theme_bw() +
+  theme(text = element_text(size = 15, colour = "black"),
+        axis.text.x = element_text(size=14, angle = 45, hjust = 1, vjust = 1))+
+ scale_x_continuous(
+  breaks = scales::pretty_breaks(n = 6)  #ggplot makes breaks based on data
+)
+
+
+ggsave(file="plots/c3/2025_plots/c3_2025JUNcruz_gen_freq_distribution.png", width = 10, height = 12, dpi = 300)
+
+```
+
+
+
++ Removing outliers from June cruise data
+
+```{r}
+
+c3_Jun25_outlier_detect <- multidetect(data = c3_jun2025_clean, 
+                                var = "chl", 
+                                var_col = "code",
+                                multiple = TRUE,
+                                methods = c("adjbox", "iqr", "hampel","jknife",
+                                            "seqfences", "mixediqr",
+                                            "distboxplot", "semiqr",
+                                            "zscore", "logboxplot", "medianrule"),
+                       silence_true_errors = TRUE, 
+                       missingness = 0.1,
+                       sdm = FALSE,
+                       na.inform = TRUE)
+  
+  
+
+#Visualize the number of outliers detected by each method
+
+ggoutliers(c3_Jun25_outlier_detect,
+                        select = unique(c3_jun2025_clean$code),
+                        color='purple',
+                        desc = TRUE,
+                        ncol = 10,
+                        nrow = 10)
+
+ggsave(file = "plots/c3/2025_plots/outliersJUN25_per_site.png", width = 10, height = 10, dpi = 300)
+
+
+#Obtaining quality controlled dataset using loess method or data labeling
+
+
+out_qc_loessJUN25 <- extract_clean_data(refdata = c3_jun2025_clean, 
+            outliers = c3_Jun25_outlier_detect, loess = TRUE,
+            var_col = "code"
+            )  #set threshold to 0.8 to remove the very strong outliers only
+
+#clean dataset
+nrow(out_qc_loessJUN25)
+
+#reference data
+nrow(c3_jun2025_clean)
+
+out_qc_labeledJUN25 <- classify_data(refdata = c3_jun2025_clean, 
+                                  var_col = "code",
+                                outliers = c3_Jun25_outlier_detect)
+
+
+#Visualize labelled quality controlled dataset
+
+ggenvironmentalspace(out_qc_labeledJUN25, 
+                     type = '1D',
+                     ggxangle = 45, 
+                     ncol = 10,
+                     nrow = 10,
+                     scalecolor = 'viridis',
+                     xhjust = 1,
+                     legend_position = 'blank',
+                     ylab = "Number of records",
+                     xlab = "Outlier labels")
+
+
+ggsave(filename = "plots/c3/2025_plots/filtered_siteJUN25_data.png", width = 14, height = 10, dpi = 300)
+
+
+
+#labelled outlier or not 
+labeledJUN25 <- classify_data(refdata = c3_jun2025_clean, 
+                         var_col = "code",
+                         outliers = c3_Jun25_outlier_detect)
+
+
+
+#plot clean dataset
+
+out_qc_loessJUN25 %>% 
+mutate(code = as.factor(code)) %>% 
+ggplot(aes(x = chl)) +
+  geom_histogram(bins = 30, binwidth = 2, boundary = 0, fill = "steelblue", color = "black") +
+facet_wrap(~ code)+
+  labs(x = "Chlorophyll (ug/l)", y = "Frequency") +
+  theme_bw() +
+  theme(text = element_text(size = 10, colour = "black"),
+        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))+
+ scale_x_continuous(
+  breaks = scales::pretty_breaks(n = 6)  #ggplot makes breaks based on data
+)
+
+ggsave(file="plots/2025_plots/c3_2025_loessfilter_sitesJUN_freq_distribution.png", width = 10, height = 10, dpi = 300)
+
+
+
+```
+
+
+
++ Get final dataset
+
+```{r}
+
+
+final_crjun_2025_df <- out_qc_loessJUN25 %>% 
+  group_by(code, year) %>%
+  summarise(
+    chl = mean(chl, na.rm = TRUE),
+    pc = mean(pc, na.rm = TRUE),
+    temp = mean(temp, na.rm = TRUE),
+    depth = mean(depth, na.rm = TRUE),
+    source_file  = unique(source_file),
+  ) 
+
+```
+
+
+
++ Join c3 cruise datasets
+
+```{r}
+
+c3_cruises_data <- bind_rows(final_crjun_2023_df, final_crjul_2024_df, final_crnov_2024_df,    final_crapr_2025_df, final_crjun_2025_df) %>% 
+  arrange(source_file) %>% 
+  mutate(source_file = str_remove(source_file, "\\.csv$"))
+
+```
+
+
++ c3 files with extracted chl
+
+```{r}
+
+file_paths.csv_extc3 <- dir("c3_extracted chls", "*.csv", full.names = TRUE)
+
+c3_j2023_extchl <- read_csv(file_paths.csv_extc3[1]) %>%
+  select(code, ext_chl, sd, srp_ug_l, nitrates_ug_l, source_file) %>% 
+  filter(!is.na(ext_chl))
+
+  
+
+
+c3_2024_25_extchl <- read_csv(file_paths.csv_extc3[2]) %>% 
+  clean_names() %>% 
+  filter(study %in% "CR") %>% 
+  rename(code = site,
+         ext_chl = florometer_chl_ug_l) %>% 
+  select(code, ext_chl, sd, srp_ug_l,nitrates_ug_l,source_file) %>% 
+  mutate(sd = as.numeric(sd)) 
+
+
+c3_extchl_files <- bind_rows(c3_j2023_extchl, c3_2024_25_extchl) %>% 
+  mutate(source_file = str_remove(source_file, "\\.csv$")) # remove csv extension from file name, and $ means at the end of name to avoid accidental removals
+
+
+```
+
++ joining ext_chl with c3 sonde files
+
+```{r}
+
+
+c3_calib_data <- full_join(c3_cruises_data, c3_extchl_files, by = c("code", "source_file")) %>% 
+  mutate(
+    source_file_clean = ifelse(
+      source_file %in% c("c3_CR_27_June_2023", "Turner_C3_28June2023_cruise"),
+      "cruise-c3data-2023",
+      source_file
+    )
+  )
+
+
+```
+
+
+
++ Linear regression for chl_c3 ~ ext_chl
+
++   check slopes across years
+
+```{r}
+c3_calib_data %>% 
+  filter(!is.na(code), !is.na(chl)) %>% 
+  arrange(source_file_clean, chl) %>% 
+  ggplot(aes(x = chl, y = ext_chl)) +
+  #facet_wrap(~source_file_clean) +  
+geom_point(color = "steelblue", size = 3.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "red", linewidth = 1.5) +
+  stat_regline_equation(
+    aes(label = paste(after_stat(eq.label), ..rr.label.., sep = "~~~~")),
+    size = 15,
+    show.legend = FALSE
+  ) +
+  theme_bw() +
+  theme(
+    panel.background = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_line(colour = "gray90", linetype = "dotted", linewidth = 0.5),
+    legend.position = "bottom",
+      legend.text = element_text(size = 20),   # 👈 increases legend labels
+  legend.title = element_text(size = 18),
+  
+    axis.text = element_text(size = 30, margin = margin(t = 15)),
+    axis.title = element_text(size = 30),
+    axis.text.x = element_text(vjust = 1, hjust = 1),
+    plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+  ) +
+  guides(color = guide_legend(override.aes = list(size = 8)))
+  
+
+
+
+
+
+  ggsave(filename = "plots/CALIBc3/rship_c3chl~ext_gen_origdata.png", width = 20, height = 15, dpi = 300)
+
+model_1a <- lm(ext_chl ~ chl, data = c3_calib_data)
+
+
+plot(model_1a)
+
+int_model_1a <- 
+
+```
+
+In the original data model, the residuals vs fiited plot shows points skewed to the left and not spread out. The  qqnorm line is more flattened. The scale location plot the line increasing, showing high variation. The leverage plot shows some influential points. However, the ext_chl~ c3chl model shows: the intercept of 
+
+
+
+
+
+
+log transformed
+
+```{r}
+
+
+c3_calib_data %>% 
+filter(source_file_clean != "c3_CR_JUN2025") %>% 
+  ggplot(aes(log10(chl), log10(ext_chl))) +
+  geom_point(size = 3.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "red", linewidth = 1.5) +
+  stat_regline_equation(
+    aes(label = paste(after_stat(eq.label), ..rr.label.., sep = "~~~~")),
+    size = 15,
+    show.legend = FALSE
+  ) +
+  theme_bw() +
+  theme(
+    panel.background = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_line(colour = "gray90", linetype = "dotted", linewidth = 0.5),
+    legend.position = "bottom",
+      legend.text = element_text(size = 20),   # 👈 increases legend labels
+  legend.title = element_text(size = 18),
+  
+    axis.text = element_text(size = 30, margin = margin(t = 15)),
+    axis.title = element_text(size = 30),
+    axis.text.x = element_text(vjust = 1, hjust = 1),
+    plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+  ) +
+  guides(color = guide_legend(override.aes = list(size = 8)))
+  
+
+ggsave(filename = "plots/CALIBc3/rship_c3chl~ext_transformed_gen_nojune.png", width = 20, height = 20, dpi = 300)
+
+
+
+
+#facetted
+c3_calib_data %>% 
+   filter(source_file_clean != "c3_CR_JUN2025") %>% 
+  ggplot(aes(log10(chl), log10(ext_chl), color = source_file_clean)) +
+  geom_point(size = 4) +
+  geom_smooth(method = "lm", se = FALSE, color = "red", linewidth = 1.5) +
+  facet_wrap(~ source_file_clean, scales = "free_y") +
+  stat_regline_equation(
+    aes(label = paste(after_stat(eq.label), ..rr.label.., sep = "~~~~")),
+    size = 6,
+    show.legend = FALSE
+  ) +
+  theme_bw(base_size = 18) +    #for scalling facets so they all look the same
+  theme(
+    panel.background = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_line(colour = "gray90", linetype = "dotted", linewidth = 0.5),
+    legend.position = "bottom",
+    legend.text = element_text(size = 16),
+    legend.title = element_text(size = 18),
+    axis.text = element_text(size = 18, margin = margin(t = 15)),
+    axis.title = element_text(size = 20),
+    axis.text.x = element_text(vjust = 1, hjust = 1),
+    strip.text = element_text(size = 16, face = "bold"),
+    plot.title = element_text(hjust = 0.5, size = 16, face = "bold")
+  ) +
+  guides(color = guide_legend(override.aes = list(size = 5)))
+  
+  
+
+ggsave(filename = "plots/CALIBc3/rship_c3chl~ext_transformedfacet_nojune.png", width = 30, height = 20, dpi = 300)
+
+```
+
+
+c3 model with no env _ log transformed chl
+
+```{r}
+
+model_1b <- lm(
+  log10(ext_chl) ~log10(chl),
+  data = c3_calib_data
+)
+
+summary(model_1b)
+
+
+
+```
+Check diagnostics
+
+```{r}
+library(car)
+
+
+#check for multicollinearity
+vif(model_2) #If VIF > 5–10 → variables are overlapping. Which is not the case here
+
+
+#check residuals normality..etc
+par(mfrow = c(2, 2))
+plot(model_2)
+
+```
+
+
+
+c3 model with env: Does the slope of chl → ext_chl change with environment?
+
+Is my sonde calibration stable across environmental gradients?
+
++ check visuals
+```{r}
+
+### check r/ships with ext_chl_Need for data transformation?
+
+ggplot(c3_calib_data, aes(temp, log10(ext_chl))) + geom_point()
+ggplot(c3_calib_data, aes(pc, log10(ext_chl))) + geom_point()
+ggplot(c3_calib_data, aes(sd, log10(ext_chl))) + geom_point()
+
+
+#sd relationship _Yes, log trasnform for sd and pc. No need for temp
+ggplot(c3_calib_data, aes(sd, log10(ext_chl))) +
+  geom_point() +
+  geom_smooth(method = "loess", se = FALSE, color = "red")
+
+
+
+#Plot slopes by environment....... sd seems to show some interaction coz the slope at high sd changes
+c3_calib_data %>% 
+  filter(!is.na(sd)) %>% 
+ggplot(aes(log10(chl), log10(ext_chl))) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  facet_wrap(~ cut(log10(sd), 3))
+
+```
+
++ models with interaction
+
+```{r}
+
+
+#This avoids collinearity issues and makes interactions interpretable.
+
+
+c3_model_data <- c3_calib_data %>%
+  mutate(
+    log_ext_chl = log10(ext_chl),
+    log_chl     = log10(chl),
+    log_sd      = log10(sd),
+    log_pc      = log10(pc)
+  ) %>%
+  mutate(
+    log_chl_c = scale(log_chl, scale = FALSE),
+    log_sd_c  = scale(log_sd,  scale = FALSE),
+    log_pc_c  = scale(log_pc,  scale = FALSE),
+    temp_c    = scale(temp,    scale = FALSE)
+  )
+
+
+#Fit FULL interaction model (Main effects: chl, pc, temp and sd).. plus interaction chl*pc, chl*sd, chl*temp
+
+model_int <- lm(
+  log_ext_chl ~ log_chl_c * (log_sd_c + log_pc_c + temp_c),
+  data = c3_model_data
+)
+
+
+summary(model_int)
+
+
+#check for multicollinaerity
+vif(model_int)
+
+
+```
+
+check diagnostics
+```{r}
+
+par(mfrow = c(2, 2))
+plot(model_int)
+
+```
+
+
+Compare with the simpler model
+
+```{r}
+
+anova(model_2a, model_int)
+AIC(model_2a, model_int)
+
+```
+
+The AIC in the interaction model is higher than in the simpler model so it doesn't improve our chl prediction.
