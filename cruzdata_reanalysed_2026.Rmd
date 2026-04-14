@@ -42,19 +42,66 @@ library(mgcv) #For GAM models
 
 
 #import all cruise ysi files
-+   2022
 
-+     MFANGANO SONDE
++ Function to import ysi files
 ```{r}
 
-file_paths.csv <- dir("2022_files", pattern = "*.csv", full.names = TRUE)
+#function to read and combine csv files
+read_and_combine_csv <- function(file_path) {
+  tryCatch(
+    {
+      # Read the CSV file
+      data <- read_csv(file_path)
+      
+      
+      # Remove the first row
+      data <- data[-1, ]
+      
+      # Columns to convert to double
+      cols_to_convert <- c("Temp", "SpCond", "Sal", "Depth", "Chl...6", "Chl...7", "BGA-PC...8", "BGA-PC...9", "Battery")
+      
+      # Convert specified columns to double
+      data[, cols_to_convert] <- lapply(data[, cols_to_convert], as.numeric)
+      
+      # Extract the file name without the ".csv" extension
+      file_name <- tools::file_path_sans_ext(basename(file_path))
+      
+      # Add a new column "FileName" to the data frame, remove formats
+      data <- data %>% mutate(FileName = file_name)%>% 
+        clean_names() #clean headings 
+      
+      
+      return(data)
+    },
+    error = function(e) {
+      cat("Error occurred while processing file:", file_path, "\n")
+      message("Error Message:", conditionMessage(e), "\n")
+      traceback()
+      return(NULL) # Return NULL to indicate failure
+    }
+  )
+}
 
 
 
-ysiF_2022 <- read_csv(file_paths.csv[2], skip=2, 
-                      col_names = c("date_time", "temp", 
-                                    "sp_cond", "salinity", "depth", "chl_ug_l",
-                                    "chl_rfu_F", "bga_pc", "bga_rfu_F", "battery"))
+```
+
++   2022
+
++     MFANGANO chl sensor
+
+```{r}
+
+
+file_paths_csv <- dir("ysi_2022_files", pattern = "*.csv", full.names = TRUE)
+
+
+ysi_cruz22_files <- purrr::map_dfr(file_paths_csv, read_and_combine_csv) 
+
+
+ysiF_2022 <- ysi_cruz22_files %>% 
+  filter(file_name == "L_CMPF") 
+
 
 #attach time stamps
 ysiF_2022_b <- ysiF_2022 %>%
@@ -68,6 +115,8 @@ ysiF_2022_b <- ysiF_2022 %>%
            TRUE ~ NA_character_
          )) %>% 
   filter(!is.na(code))
+
+
 
 
 
@@ -169,6 +218,9 @@ ggsave(file="plots/2022_plots/ysi22_loessfilter_MF_freq_distribution.png", width
 #No strong outlier so we will just average the values
 
 ysiF_2022_c <- ysiF_2022_b %>% 
+  rename(chl_rfu_F = chl_7,
+         bga_rfu_F = bga_pc_9) %>% 
+  
   filter(!is.na(code)) %>% 
   group_by(code) %>% 
   summarise(
@@ -178,21 +230,22 @@ ysiF_2022_c <- ysiF_2022_b %>%
     sp_cond_ysi = mean(sp_cond, na.rm = TRUE)
   ) %>% 
   ungroup() %>% 
-  mutate(sample_type = "cruise-2022_MFsonde")
+  mutate(sample_type = "cruise-2022_MFysi")
 
 ```
 
 
-+   Dunga sonde 2022
++   Dunga chl sensor
 
 ```{r}
 #DUNGA sonde
-ysi_2022DG <-read_csv(file_paths.csv[1], skip=2, col_names = c("date_time", "temp", 
-                                       "sp_cond", "salinity",
-                                                           "depth", "chl_ug_l",
-                                  "chl_rfu_DG", "bga_pc", "bga_rfu_DG", "battery"))
-
-
+ysi_2022DG <-ysi_cruz22_files %>% 
+  filter(file_name == "L_CMPDU") %>% 
+   rename(chl_rfu_DG = chl_7,
+         bga_rfu_DG = bga_pc_9) 
+    
+    
+  
 ysi_2022DG_b <- ysi_2022DG %>%
   mutate(date_time = as.POSIXct(date_time, format = "%m/%d/%Y %H:%M"),
          code = case_when(
@@ -219,6 +272,8 @@ group_by(code) %>%
     ) %>% 
   ungroup() %>% 
   mutate(sample_type = "cruise-2022_DGysi")
+
+
 ```
 
 +     combine MF and DG sonde data
@@ -236,6 +291,8 @@ cruise_sondes_2022 <- bind_rows(ysi_2022DG_c, ysiF_2022_c)
 
 + import files for 2023 and 2024
 
++   MF chl sensor
+
 ```{r}
 
 
@@ -243,51 +300,11 @@ cruise_sondes_2022 <- bind_rows(ysi_2022DG_c, ysiF_2022_c)
 
 # Get a list of file paths in the "files" directory
 
-file_paths.csv <- dir("ysi_files", pattern = "*.csv", full.names = TRUE)
+file_paths.csv <- dir("ysi_cruise_files", pattern = "*.csv", full.names = TRUE)
 
-
-# Read the first file and inspect its column names
-first_file <- read_csv(file_paths.csv[1])
-colnames(first_file)
-
-#function to read and combine csv files
-read_and_combine_csv <- function(file_path) {
-  tryCatch(
-    {
-      # Read the CSV file
-      data <- read_csv(file_path)
-      
-      
-      # Remove the first row
-      data <- data[-1, ]
-      
-      # Columns to convert to double
-      cols_to_convert <- c("Temp", "SpCond", "Sal", "Depth", "Chl...6", "Chl...7", "BGA-PC...8", "BGA-PC...9", "Battery")
-      
-      # Convert specified columns to double
-      data[, cols_to_convert] <- lapply(data[, cols_to_convert], as.numeric)
-      
-      # Extract the file name without the ".csv" extension
-      file_name <- tools::file_path_sans_ext(basename(file_path))
-      
-      # Add a new column "FileName" to the data frame, remove formats
-      data <- data %>% mutate(FileName = file_name)%>% 
-        clean_names() #clean headings 
-      
-      
-      return(data)
-    },
-    error = function(e) {
-      cat("Error occurred while processing file:", file_path, "\n")
-      message("Error Message:", conditionMessage(e), "\n")
-      traceback()
-      return(NULL) # Return NULL to indicate failure
-    }
-  )
-}
 
 # Read all csv files and combine them
- df_ysi_cruz <- map_df(file_paths.csv, read_and_combine_csv) %>% 
+ MF_cruz_22 <- map_df(file_paths.csv, read_and_combine_csv) %>% 
     rename(chl_rfu = chl_7,
          bga_rfu = bga_pc_9) 
  
@@ -302,7 +319,7 @@ read_and_combine_csv <- function(file_path) {
 
 
 
-ysi2023 <- df_ysi_cruz %>%
+ysi2023 <- MF_cruz_22 %>%
   filter(file_name == "cruise-ysidata-2023_naphtali") %>% 
   
   mutate(date_time = as.POSIXct(date_time, format = "%m/%d/%Y %H:%M"),
@@ -532,7 +549,7 @@ final23_df <- out_qc_labeled23 %>%
 ```{r}
 
 
-crjul_24 <- df_ysi_cruz %>%
+crjul_24 <- MF_cruz_22 %>%
   filter(file_name == "CR24JUL_ysi")
   
 ##cross check to only keep all depths > -0.7 i.e. -0.6 to -0.4 for lake samples
@@ -653,7 +670,7 @@ ggsave(file="plots/2024_plots/ysi2024_site_freq_distribution.png",width = 16, he
 ```{r}
 
 ysicrjul_24_filter <- ysicrjul_24 %>% 
-  filter(!(chl_rfu <= 0 | chl_rfu >= 100)) 
+  filter(!(chl_rfu <= 0 | chl_rfu > 150)) 
 
 ysicrjul_24_filter %>% 
 mutate(code = as.factor(code)) %>% 
@@ -699,8 +716,8 @@ ggoutliers(ysicrjul_24_outlier_detect,
                         select = c("CHL26", "CHL25", "CHL24","CHL3","CHL4", "CHL5","CHL6", "CHL7", "BG10","CHL9","CHL10","BG13", "CHL19","CHL18","CHL15","CNL1","CNL2",  "CHL12", "CHL13","BG16","CHL20","CHL21","CHL27","BG5"),
                         color='purple',
                         desc = TRUE,
-                        ncol = 5,
-                        nrow = 7)
+                        ncol = 10,
+                        nrow = 10)
 
 ggsave(file = "plots/2024_plots/2024_outliers_per_site24_no_chl18_.png", width = 10, height = 20, dpi = 300)
 
@@ -799,7 +816,7 @@ final24_df <- out_qc_labeled24 %>%
 ```{r}
 
 
-file_paths.csv <- dir("extracted_chls", pattern = "*.csv", full.names = TRUE)
+file_paths.csv <- dir("ysi_extracted_chls", pattern = "*.csv", full.names = TRUE)
 
 
 chl_df_23 <- read_csv(file_paths.csv[2]) %>% 
@@ -830,7 +847,7 @@ df_func <- function(total_vol, sample_vol) {
 }
 
 # Apply the function to the defined columns to get DF
-chl_dat$DF <- df_func(chl_dat$total_vol_in_cuvette, chl_dat$sample_vol)
+chl_dat_24$DF <- df_func(chl_dat_24$total_vol_in_cuvette, chl_dat_24$sample_vol)
 
 
 #convert final_FU to chl concentration using Pete's formula (for formula refer to WG_2022 analysis R file)
@@ -845,16 +862,16 @@ convert_fluorescence_to_chlorophyll <- function(fluoresence_units, dilution_fact
 }
 
 
-fluorescence_units <- chl_dat$fu_after_dilution
-dilution_factor  <- chl_dat$DF
-extract_volume <- chl_dat$vol_extract
-volume_filtered <- chl_dat$vol_filtered/1000
+fluorescence_units <- chl_dat_24$fu_after_dilution
+dilution_factor  <- chl_dat_24$DF
+extract_volume <- chl_dat_24$vol_extract
+volume_filtered <- chl_dat_24$vol_filtered/1000
 
 
-chl_dat$ext_chl <- convert_fluorescence_to_chlorophyll(fluoresence_units, dilution_factor, extract_volume, volume_filtered)
+chl_dat_24$ext_chl <- convert_fluorescence_to_chlorophyll(fluoresence_units, dilution_factor, extract_volume, volume_filtered)
 
 
-chl_dat_subset <- chl_dat[-36, ]
+chl_dat_subset <- chl_dat_24[-36, ]
 
 chl_df_24 <- chl_dat_subset %>% 
   select(index_code,site, ext_chl, sample_type) %>% 
@@ -882,9 +899,11 @@ data_2022 <- data_2022 %>%
 data_2022 <- data_2022%>% 
   mutate(date = date(date_time),
          time = paste(hour(date_time), minute(date_time), second(date_time), 
-                      sep = ":"))  # Extract time components and combine)
+                      sep = ":"))  %>% # Extract time components and combine)  
+mutate(year = year(date))
 
 cruise_sites_22 <- data_2022 %>% 
+  filter( year == "2022" ) %>% 
   dplyr::select(station, fu_chl) %>%
   rename(code = station,
          ext_chl = fu_chl) %>% 
@@ -931,7 +950,7 @@ ysi_field_data <- bind_rows(cr_jul23_merge_subset, cr_jul24_merge_subset, ysidat
 
 +   2022 experiments
 
-+   MF sonde
++   MF sensor
 ```{r}
 #MF sonde
 
@@ -958,7 +977,9 @@ MF_EXPER_b <- MF_EXPER %>%
            (date_time >= as.POSIXct("2022-07-11 06:11:00") & date_time <= as.POSIXct("2022-07-11 12:01:00")) ~ "0.007X",
            TRUE ~ NA_character_
          )) %>% 
-  filter(!is.na(code))
+  filter(!is.na(code)) %>% 
+  rename(chl_rfu_F = chl_7,
+         bga_rfu_F = bga_pc_9)
 
 
 
@@ -1014,7 +1035,7 @@ out_qc_labeled22F <- classify_data(refdata = MF_EXPER_b,
 
 #Visualize labelled quality controlled dataset
 
-ggenvironmentalspace(ysiF_expt_outlier_detect, 
+ggenvironmentalspace(out_qc_labeled22F, 
                      type = '1D',
                      ggxangle = 45, 
                      scalecolor = 'viridis',
@@ -1025,7 +1046,7 @@ ggenvironmentalspace(ysiF_expt_outlier_detect,
                      ncol = 5,
                      nrow = 2)  #investigate why it's not working#############################
 
-#ggsave(filename = "plots/2022_plots/labelled_outlier_chart_MF.png", width = 8, height = 5, dpi = 300)
+ggsave(filename = "plots/2022_plots/labelled_outlier_chart_MFexpt22.png", width = 8, height = 5, dpi = 300)
 
 
 #labelled outlier or not 
@@ -1070,12 +1091,12 @@ MF_EXPER_c <- out_qc_loess22F %>% filter(!is.na(code)) %>%
 ```
 
 
-+     DG sonde
++     DG sensor
 ```{r}
 
 
 DU_EXPER <- ysi_expt_files %>% 
-  filter(file_name == "DG_EXPER_2022") 
+  filter(file_name == "DU_EXPER_2022") 
 
 
 DU_EXPER_b <- DU_EXPER %>%
@@ -1090,11 +1111,19 @@ DU_EXPER_b <- DU_EXPER %>%
            (date_time >= as.POSIXct("2022-07-10 22:50:00") & date_time <= as.POSIXct("2022-07-11 06:00:00")) ~ "0.015X",
            (date_time >= as.POSIXct("2022-07-11 06:10:00") & date_time <= as.POSIXct("2022-07-11 11:50:00")) ~ "0.007X",
            TRUE ~ NA_character_
-         ))
+         )) %>% 
+  rename(chl_rfu_DG = chl_7,
+         bga_rfu_DG = bga_pc_9)
+
+
+
+
+
 ```
 
 
 + remove outliers from the DG sonde 
+
 ```{r}
 
 
@@ -1199,6 +1228,7 @@ DU_EXPER_c <- out_qc_labeled22DU %>%
   ungroup() %>% 
   mutate(file_name = "DGysi-2022_expt")
 
+
 ###joining the expt readings for ysi_DG and ysi_MF
 expt22_ysi <- full_join(DU_EXPER_c, MF_EXPER_c)
 
@@ -1206,6 +1236,160 @@ expt22_ysi <- full_join(DU_EXPER_c, MF_EXPER_c)
 
 
 ```
+
+
+
+
+
++   extracted chl for the dilution expt
+
+```{r}
+
+ext_chl_expt22 <- read_csv("sonde_expt_22.csv") 
+
+ext_chl_expt22$DF <- df_func(ext_chl_expt22$total_vol, ext_chl_expt22$sample_vol)
+
+fluorescence_units <- ext_chl_expt22$FU
+dilution_factor  <- ext_chl_expt22$DF
+extract_volume <- ext_chl_expt22$vol_ext_ml
+volume_filtered <- ext_chl_expt22$vol_fil_ml/1000
+
+ext_chl_expt22$ext_chl <- convert_fluorescence_to_chlorophyll(fluoresence_units, dilution_factor, extract_volume, volume_filtered)
+
+
+
+
+ext_chl_expt22_b <- ext_chl_expt22 %>% 
+      dplyr::select(code, ext_chl)
+
+
+#join the ext_chl with the ysi readings
+
+ysi_dilution_expt <- full_join(expt22_ysi, ext_chl_expt22_b, by = "code") %>% 
+  mutate(data_type = "experiment") 
+
+
+
+
+
+
+
+
+```
+
++   Are the 2 ysi sondes seeing the same thing?
+
+
+```{r}
+
+dat1 <- ysi_field_data
+dat2 <- ysi_dilution_expt
+
+compar_data <- bind_rows(dat1, dat2) %>% 
+  filter(!file_name %in% c("CR24JUL_ysi","cruise-ysidata-2023_naphtali"),
+         !is.na(ext_chl) , !is.na(chl_ysi)) 
+  
+  
+
+#reshape ysi data
+
+wide_data <- compar_data %>%
+  mutate(
+    sonde = case_when(
+      grepl("DG", file_name) ~ "DG",     #does file_name contain DG or MF?
+      grepl("MF", file_name) ~ "MF"
+    )
+  ) %>%
+  dplyr::select(code, sonde, chl_ysi) %>%
+  pivot_wider(
+    names_from = sonde,
+    values_from = chl_ysi
+  )
+
+
+#plot
+
+ggplot(wide_data, aes(x = DG, y = MF)) +
+  geom_point(size = 3, alpha = 0.7) +
+  
+  # 1:1 line (perfect agreement)
+  geom_abline(slope = 1, intercept = 0,
+              color = "red", linetype = "dashed", linewidth = 1.2) +
+  
+  # regression line (actual relationship)
+  geom_smooth(method = "lm", se = FALSE,
+              color = "blue", linewidth = 1.5) +
+  
+  labs(
+    x = "DG Sonde Chlorophyll",
+    y = "MF Sonde Chlorophyll",
+    title = "DG vs MF Sonde Comparison"
+  ) +
+  
+  coord_equal() +
+  theme_bw(base_size = 16) +
+  stat_regline_equation(
+    aes(label =  paste(after_stat(eq.label), ..rr.label.., 
+                       sep = "~~~~")), show.legend = FALSE)
+
+  
+
+```
+The DG and MF chl sensors were reading close in agreement.
+
+
++ Check the extracted and ysi data (lake and experiment)
+
+
+```{r}
+
+
+
+#plot
+compar_data %>% 
+  filter(file_name %in% c("cruise-2022_DGysi", "DGysi-2022_expt")) %>% 
+ggplot(aes(x = log10(chl_ysi), y = log10(ext_chl))) +
+  geom_point(size = 3, alpha = 0.7) +
+  
+  
+  # regression line (actual relationship)
+  geom_smooth(method = "lm", se = FALSE,
+              color = "blue", linewidth = 1.5) +
+  
+  #facet_wrap(~ file_name, scales = "free_y") +
+  
+  labs(
+    x = "Log_DG Sensor Chlorophyll",
+    y = "Log_Extracted Chlorophyll",
+    #title = "DG vs MF Sonde Comparison"
+  ) +
+  
+  theme_bw(base_size = 14) +
+  stat_regline_equation(
+    aes(label =  paste(after_stat(eq.label), ..rr.label.., 
+                       sep = "~~~~")), show.legend = FALSE)
+
+
+compar_data %>% 
+  filter(file_name %in% c("cruise-2022_DGysi", "DGysi-2022_expt")) %>% 
+ggplot(aes(ext_chl, chl_ysi, color = file_name)) +
+  geom_point(size = 3) +
+  scale_x_continuous(trans = "log10") +
+  geom_smooth(method = "lm", se = FALSE)+
+  facet_wrap(~ file_name, scales = "free_x")+
+  theme_bw(base_size = 10) +
+  stat_regline_equation(
+    aes(label =  paste(after_stat(eq.label), ..rr.label.., 
+                       sep = "~~~~")), show.legend = FALSE)
+
+
+```
+
+
+
+
+
+
 
 
 + 2024 spiking MF sonde sensor and c3 experiments with ext_chl
@@ -1218,7 +1402,7 @@ This file was generated from a previous RMD file.
 exptsjul_24 <- read_csv("2024_spiking_expts_combined_data.csv") 
 
 
-MF_EXPERjul_24 <- expts_24 %>% 
+MF_EXPERjul_24 <- exptsjul_24 %>% 
   filter(sos == "ysi") %>% 
   mutate(code = site,
          chl_ysi = top_chl,
@@ -1227,44 +1411,7 @@ MF_EXPERjul_24 <- expts_24 %>%
          data_type = "experiment") %>% 
   dplyr::select(code, chl_ysi, bga_ysi, ext_chl, file_name, data_type)
 
-
-
-
-
-
-
-```
-
-
-
-
-+   extracted chl for the dilution expt
-
-```{r}
-
-ext_chl_expt22 <- read_csv(file_paths.csv[4])
-
-
-ext_chl_expt22$DF <- df_func(ext_chl_expt22$total_vol, ext_chl_expt22$sample_vol)
-
-fluorescence_units <- ext_chl_expt22$FU
-dilution_factor  <- ext_chl_expt22$DF
-extract_volume <- ext_chl_expt22$vol_ext_ml
-volume_filtered <- ext_chl_expt22$vol_fil_ml/1000
-
-ext_chl_expt22$ext_chl <- convert_fluorescence_to_chlorophyll(fluoresence_units, dilution_factor, extract_volume, volume_filtered)
-
-
-ext_chl_expt22_b <- ext_chl_expt22 %>% 
-  dplyr::select(code, ext_chl)
-
-
-#join the ext_chl with the ysi readings
-
-ysi_dilution_expt <- full_join(expt22_ysi, ext_chl_expt22_b, by = "code") %>% 
-  mutate(data_type = "experiment") %>% 
-  bind_rows(MF_EXPERjul_24)
-
+MF_spiking_julexpt_24 <- MF_EXPERjul_24
 
 
 
@@ -1274,17 +1421,17 @@ ysi_dilution_expt <- full_join(expt22_ysi, ext_chl_expt22_b, by = "code") %>%
 
 
 
-+ join ysi dilution expt data with field data
+
++ join ysi dilution expt and spiking 2024 expt data with field data
 
 ```{r}
 
 
 ysi_calib_data <- bind_rows(ysi_field_data, ysi_dilution_expt) %>% 
-  filter(if_all(c(ext_chl, chl_ysi), ~ !is.na(.)))  
+  filter(if_all(c(ext_chl, chl_ysi), ~ !is.na(.)))  %>% 
+  bind_rows(MF_spiking_julexpt_24)
   
-
-
-
+  
 
 
 
@@ -1299,8 +1446,10 @@ ysi_calib_data <- bind_rows(ysi_field_data, ysi_dilution_expt) %>%
 +   check slopes across years
 
 ```{r}
+
+
 #Field only
-ysi_calib_data_field <- calib_data  %>% 
+ysi_calib_data_field <- ysi_calib_data  %>% 
   filter(data_type %in% "field") 
 
 
@@ -1348,40 +1497,7 @@ stat_regline_equation(
 ggsave(filename = "plots/CALIB/log_rship_ysi~ext_field_withDGysi_facet.png", width = 10, height = 10, dpi = 300)
 
 
-###model with DGsonde no interaction
 
-model_1 <- lm(
-  log10(ext_chl + 1) ~log10(chl_ysi + 1),
-  data = ysi_calib_data_field_withdg
-)
-
-summary(model_1)
-
-
-
-#no DGsonde
-ysi_calib_data_field_nodg <- ysi_calib_data_field %>% 
-filter(file_name != "cruise-2022_DGysi") %>% 
-arrange(file_name, chl_ysi)
-
-ysi_calib_data_field_nodg %>% 
-ggplot(aes(log10(chl_ysi), log10(ext_chl), colour = file_name)) +
-  geom_point() +
-  geom_smooth(method = "lm", se = FALSE) +
-stat_regline_equation(
-    aes(label =  paste(after_stat(eq.label), ..rr.label.., 
-                       sep = "~~~~")), show.legend = FALSE)
-
-ggsave(filename = "plots/CALIB/log_rship_ysi~ext_field_noDGysi_facetted.png", width = 10, height = 10, dpi = 300)
-
-###model with no DGsonde no interaction
-
-model_1 <- lm(
-  log10(ext_chl + 1) ~log10(chl_ysi + 1),
-  data = ysi_calib_data_field_nodg
-)
-
-summary(model_1)
 
 
 
@@ -1445,6 +1561,171 @@ summary(model_1)
 ```
 
 
++ Determine linear transformations for different ysi sensors
+
+    + DG sonde sensor
+
+```{r}
+
+cruise_sondes_2022
+
+ysi_calib_data_field <- ysi_calib_data  %>% 
+  filter(data_type %in% "field") 
+
+
+DG_sensor <- ysi_calib_data_field %>% 
+  filter(file_name == "cruise-2022_DGysi")
+
+
+model_dg <- lm(ext_chl ~ chl_ysi, data = DG_sensor)
+
+summary(model_dg)
+
+par(mfrow = c(2,2))
+plot(model_dg)
+
+plot(model_dg, which = 4)  #Cook's distance
+
+
+ggplot(DG_sensor, aes(chl_ysi, ext_chl)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE)+
+  stat_regline_equation(
+    aes(label =  paste(after_stat(eq.label), ..rr.label.., 
+                       sep = "~~~~")), show.legend = FALSE)
+
+
+
+# Cook’s distance
+
+plot(model_dg, which = 4)  
+
+cooks_d <- cooks.distance(model_dg)
+
+
+DG_sensor_sub <- DG_sensor[c(1,3,4,5), ]
+
+ggplot(DG_sensor_sub, aes(chl_ysi, ext_chl)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE)+
+  stat_regline_equation(
+    aes(label =  paste(after_stat(eq.label), ..rr.label.., 
+                       sep = "~~~~")), show.legend = FALSE)
+
+
+
+
+```
+
++   MF_sensor
+
+```{r}
+
+
+MF_sensor <- ysi_calib_data_field %>% 
+  filter(file_name != "cruise-2022_DGysi")
+
+
+model_mf <- lm(ext_chl ~ chl_ysi, data = MF_sensor)
+summary(model_mf)
+
+par(mfrow = c(2,2))
+plot(model_mf)
+
+plot(model_dg, which = 4)  #Cook's distance
+
+
+#the chl sensor at DG I think was faulty. 
+
+ggplot(MF_sensor, aes(chl_ysi, ext_chl)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE)
+
+
+ggplot(MF_sensor, aes(log(chl_ysi), log(ext_chl))) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE)
+
+
+#Log model
+
+model_mf_log <- lm(log(ext_chl) ~ log(chl_ysi), data = MF_sensor)
+
+summary(model_mf_log)
+
+par(mfrow = c(2,2))
+plot(model_mf)
+
+
+```
+
+  + Log model for MF sonde
+  
+  
+```{r}
+
+
+model_mf_log <- lm(log10(ext_chl) ~ log10(chl_ysi), data = MF_sensor)
+
+summary(model_mf_log)
+
+par(mfrow = c(2,2))
+plot(model_mf_log)
+
+
+```
+
+  + Log model for MF sonde
+  
+  
+```{r}
+
+
+
+model_mf_log <- lm(log(ext_chl) ~ log(chl_ysi), data = MF_sensor)
+
+
+
+summary(model_mf_log)
+
+par(mfrow = c(2,2))
+plot(model_mf_log)
+
+
+```
+
++   square root square root
+
+```{r}
+
+model_mf_sq <- lm(sqrt(ext_chl) ~ sqrt(chl_ysi), data = MF_sensor)
+
+summary(model_mf_sq)
+
+par(mfrow = c(2,2))
+plot(model_mf_sq)
+
+```
+
+The points are too few... log and sqrt do not improve the model
+
+
++ Try a GAM here... 
+
+
+```{r}
+
+```
+
+
++ DG sonde sensor
+
+```{r}
+
+
+
+
+```
 
 
 
@@ -1455,7 +1736,7 @@ summary(model_1)
 +   2023 cruise
 ```{r}
 
-file_paths_csv <- dir("c3_files", pattern = "*.csv", full.names = TRUE)
+file_paths_csv <- dir("c3_cruise_files", pattern = "*.csv", full.names = TRUE)
 
 
 #function to read files
@@ -1498,6 +1779,7 @@ c3_cruise_files_b <- c3_cruise_files  %>%
   "dmy HM",
   "dmY HMS",
   "mdy HMS",
+  "mdY HMS",
   "mdy HM"
 ))) %>%
   mutate(year= year(date_time_parsed),
@@ -1520,9 +1802,10 @@ table(c3_cruise_files_b$source_file)
 
 c327jun_2023 <- c3_cruise_files_b %>%
   filter(source_file %in% "c3_CR_27_June_2023.csv") %>% 
-  mutate(date_time = as.POSIXct(date_time, format = "%m/%d/%y %H:%M:%S"),
+  mutate(date_time = as.POSIXct(date_time, format = "%m/%d/%Y %H:%M"),
          code = case_when(
            (date_time >= as.POSIXct("2023-06-27 11:26:00") & date_time <= as.POSIXct("2023-06-27 11:44:00")) ~ "CHL1",
+          
            (date_time >= as.POSIXct("2023-06-27 11:53:00") & date_time <= as.POSIXct("2023-06-27 12:49:00")) ~ "CHL2",
            (date_time >= as.POSIXct("2023-06-27 12:51:00") & date_time <= as.POSIXct("2023-06-27 14:08:00")) ~ "BG7",
            (date_time >= as.POSIXct("2023-06-27 14:26:00") & date_time <= as.POSIXct("2023-06-27 14:40:00")) ~ "CHL3",
@@ -1537,6 +1820,10 @@ c327jun_2023 <- c3_cruise_files_b %>%
            TRUE ~ NA_character_
          ))
 
+
+
+
+
 c327jun_2023_clean <- c327jun_2023 %>% 
   filter(!is.na(code)) %>% 
   arrange(date_time)
@@ -1550,7 +1837,7 @@ c327jun_2023_clean <- c327jun_2023 %>%
 
 
 c328jun_2023 <- c3_cruise_files_b %>%
-  filter(source_file %in% "Turner_C3_28June2023_cruise.csv") %>% 
+  filter(source_file %in% "Turner_C3_28_June2023_cruise.csv") %>% 
   arrange(date_time) %>% 
   mutate(date_time = as.POSIXct(date_time, format = "%m/%d/%y %H:%M:%S"),
          code = case_when(
@@ -1585,7 +1872,8 @@ c328jun_2023 <- c3_cruise_files_b %>%
 
 
  c3_2023_clean <- bind_rows(c327jun_2023,c328jun_2023)  %>% 
-    filter(!is.na(code))
+    filter(!is.na(code)) %>% 
+  mutate(code_clean = str_remove_all(code, " ")) 
 
 #write.csv(c3_2023_clean, file="c3_2023_clean.csv") 
 
@@ -1601,7 +1889,7 @@ c328jun_2023 <- c3_cruise_files_b %>%
 
 c3_2023_clean %>% 
   filter(chl > 0) %>% 
-  mutate(code = as.factor(code)) %>% 
+  mutate(code = as.factor(code_clean)) %>% 
 ggplot(aes(x = chl)) +
   geom_histogram(bins = 30, binwidth = 2, boundary = 0, fill = "steelblue", color = "black") +
   #facet_wrap(~ code) +
@@ -1633,7 +1921,7 @@ ggsave(file="plots/c3/2023_plots/c3_2023cruz_gen_freq_distribution.png", width =
 
 c3_23_outlier_detect <- multidetect(data = c3_2023_clean, 
                                 var = "chl", 
-                                var_col = "code",
+                                var_col = "code_clean",
                                 multiple = TRUE,
                                 methods = c("adjbox", "iqr", "hampel","jknife",
                                             "seqfences", "mixediqr",
@@ -1649,7 +1937,7 @@ c3_23_outlier_detect <- multidetect(data = c3_2023_clean,
 #Visualize the number of outliers detected by each method
 
 ggoutliers(c3_23_outlier_detect,
-                        select = unique(c3_2023_clean$code),
+                        select = unique(c3_2023_clean$code_clean),
                         color='purple',
                         desc = TRUE,
                         ncol = 10,
@@ -1663,7 +1951,7 @@ ggsave(file = "plots/c3/2023_plots/outliers_per_site.png", width = 10, height = 
 
 out_qc_loess23 <- extract_clean_data(refdata = c3_2023_clean, 
             outliers = c3_23_outlier_detect, loess = TRUE,
-            var_col = "code"
+            var_col = "code_clean"
             )  #set threshold to 0.8 to remove the very strong outliers only
 
 #clean dataset
@@ -1673,7 +1961,7 @@ nrow(out_qc_loess23)
 nrow(c3_2023_clean)
 
 out_qc_labeled23 <- classify_data(refdata = c3_2023_clean, 
-                                  var_col = "code",
+                                  var_col = "code_clean",
                                 outliers = c3_23_outlier_detect)
 
 
@@ -1697,7 +1985,7 @@ ggsave(filename = "plots/c3/2023_plots/filtered_site_data.png", width = 14, heig
 
 #labelled outlier or not 
 labeled23 <- classify_data(refdata = c3_2023_clean, 
-                         var_col = "code",
+                         var_col = "code_clean",
                          outliers = c3_23_outlier_detect)
 
 
@@ -1705,7 +1993,7 @@ labeled23 <- classify_data(refdata = c3_2023_clean,
 #plot clean dataset
 
 out_qc_loess23 %>% 
-mutate(code = as.factor(code)) %>% 
+mutate(code = as.factor(code_clean)) %>% 
 ggplot(aes(x = chl)) +
   geom_histogram(bins = 30, binwidth = 2, boundary = 0, fill = "steelblue", color = "black") +
 facet_wrap(~ code, scales = "free_y")+
@@ -1737,7 +2025,7 @@ Chl at chl4 is also somewhat variable but the values are over all high
 ```{r}
 
 final_crjun_2023_df <- out_qc_loess23 %>%
-  group_by(code, year) %>%
+  group_by(code_clean, year) %>%
   slice_max(order_by = chl, n = 3) %>%
   summarise(
     chl = mean(chl, na.rm = TRUE),
@@ -1954,7 +2242,8 @@ Notes: CHL21 is problematic... high variation
 
 
 final_crjul_2024_df <- out_qc_loessj24 %>%
-  group_by(code, year) %>%
+  rename(code_clean = code) %>% 
+  group_by(code_clean, year) %>%
   summarise(
     chl = mean(chl, na.rm = TRUE),
     pc = mean(pc, na.rm = TRUE),
@@ -2005,7 +2294,7 @@ c3_nov2024 <- c3_cruise_files_b %>%
         (date_time >= as.POSIXct("2024-11-07 19:24:00") & date_time <= as.POSIXct("2024-11-07 19:40:00")) ~ "CHL5",
         (date_time >= as.POSIXct("2024-11-07 20:05:00") & date_time <= as.POSIXct("2024-11-07 20:30:00")) ~ "CHL6",
         
-           (date_time >= as.POSIXct("2024-11-08 08:06:00") & date_time <= as.POSIXct("2024-11-08 08:24:00")) ~ "BG10",
+        (date_time >= as.POSIXct("2024-11-08 08:06:00") & date_time <= as.POSIXct("2024-11-08 08:24:00")) ~ "BG10",
            
         (date_time >= as.POSIXct("2024-11-08 09:29:00")  & date_time <= as.POSIXct("2024-11-08 09:50:00")) ~ "CHL9",
         (date_time >= as.POSIXct("2024-11-08 10:07:00")  & date_time <= as.POSIXct("2024-11-08 10:26:00"))  ~ "CHL7",
@@ -2170,7 +2459,8 @@ CHL21 is also very problematic here
 
 
 final_crnov_2024_df <- out_qc_loessN24 %>%
-  group_by(code, year) %>%
+  rename(code_clean = code) %>% 
+  group_by(code_clean, year) %>%
   summarise(
     chl = mean(chl, na.rm = TRUE),
     pc = mean(pc, na.rm = TRUE),
@@ -2206,13 +2496,13 @@ c3_apr2025 <- c3_cruise_files_b %>%
         (date_time >= as.POSIXct("2025-04-06 17:55:00")  & date_time <= as.POSIXct("2025-04-06 18:15:00")) ~ "BG10",
         (date_time >= as.POSIXct("2025-04-06 19:03:00")  & date_time <= as.POSIXct("2025-04-06 19:30:00")) ~ "CHL9",
         
-        (date_time >= as.POSIXct("2025-04-07 09:16:00") & date_time <= as.POSIXct("2025-04-07 09:28:00")) ~ "CHL19",
         (date_time >= as.POSIXct("2025-04-07 10:12:00") & date_time <= as.POSIXct("2025-04-07 10:24:00")) ~ "CHL18",
         (date_time >= as.POSIXct("2025-04-07 11:14:00") & date_time <= as.POSIXct("2025-04-07 11:26:00")) ~ "CHL15",
         (date_time >= as.POSIXct("2025-04-07 12:06:00") & date_time <= as.POSIXct("2025-04-07 12:30:00")) ~ "CNL1",
         (date_time >= as.POSIXct("2025-04-07 15:18:00") & date_time <= as.POSIXct("2025-04-07 15:38:00")) ~ "CNL2",
         (date_time >= as.POSIXct("2025-04-07 17:00:00") & date_time <= as.POSIXct("2025-04-07 17:30:00")) ~ "CHL12",
         (date_time >= as.POSIXct("2025-04-07 07:09:00") & date_time <= as.POSIXct("2025-04-07 07:17:00")) ~ "BG13",
+         (date_time >= as.POSIXct("2025-04-07 09:16:00") & date_time <= as.POSIXct("2025-04-07 09:28:00")) ~ "CHL19",
         (date_time >= as.POSIXct("2025-04-07 17:47:00") & date_time <= as.POSIXct("2025-04-07 18:05:00")) ~ "CHL13",
         
         
@@ -2372,7 +2662,8 @@ ggsave(file="plots/2025_plots/loessfilter_siteAPR_freq_distribution.png", width 
 
 
 final_crapr_2025_df <- out_qc_loessAPR25 %>% 
-  group_by(code, year) %>%
+  rename(code_clean = code) %>% 
+  group_by(code_clean, year) %>%
   summarise(
     chl = mean(chl, na.rm = TRUE),
     pc = mean(pc, na.rm = TRUE),
@@ -2580,7 +2871,8 @@ ggsave(file="plots/2025_plots/c3_2025_loessfilter_sitesJUN_freq_distribution.png
 
 
 final_crjun_2025_df <- out_qc_loessJUN25 %>% 
-  group_by(code, year) %>%
+  rename(code_clean = code) %>% 
+  group_by(code_clean, year) %>%
   summarise(
     chl = mean(chl, na.rm = TRUE),
     pc = mean(pc, na.rm = TRUE),
@@ -2599,7 +2891,11 @@ final_crjun_2025_df <- out_qc_loessJUN25 %>%
 
 c3_cruises_data <- bind_rows(final_crjun_2023_df, final_crjul_2024_df, final_crnov_2024_df,    final_crapr_2025_df, final_crjun_2025_df) %>% 
   arrange(source_file) %>% 
-  mutate(source_file = str_remove(source_file, "\\.csv$"))
+  mutate(source_file = str_remove(source_file, "\\.csv$")) %>% 
+  mutate(code_clean = str_trim(code_clean),          # Removes hidden spaces
+         code_clean = str_to_upper(code_clean),       # Ensures 'chl14' matches 'CHL14'
+         code_clean = str_remove(code_clean, "^.*_")) # Removes prefixes if they exist
+
 
 ```
 
@@ -2611,23 +2907,34 @@ c3_cruises_data <- bind_rows(final_crjun_2023_df, final_crjul_2024_df, final_crn
 file_paths.csv_extc3 <- dir("c3_extracted chls", "*.csv", full.names = TRUE)
 
 c3_j2023_extchl <- read_csv(file_paths.csv_extc3[1]) %>%
-  select(code, ext_chl, sd, srp_ug_l, nitrates_ug_l, source_file) %>% 
-  filter(!is.na(ext_chl))
+    filter(!is.na(ext_chl)) %>% 
+  mutate(code_clean = str_remove_all(code, " ")) %>% 
+  select(code_clean, ext_chl, srp_ug_l, nitrates_ug_l, sd, source_file) %>% 
+  mutate(sd = sd/100)
+
 
   
-
-
-c3_2024_25_extchl <- read_csv(file_paths.csv_extc3[2]) %>% 
-  clean_names() %>% 
+c3_2024_25_extchl <- read_csv(file_paths.csv_extc3[3])  %>% 
+  remove_empty(which = "cols") %>% clean_names() %>% 
   filter(study %in% "CR") %>% 
-  rename(code = site,
+  rename(code_clean = site,
          ext_chl = florometer_chl_ug_l) %>% 
-  select(code, ext_chl, sd, srp_ug_l,nitrates_ug_l,source_file) %>% 
-  mutate(sd = as.numeric(sd)) 
+  select(code_clean, ext_chl, srp_ug_l,nitrates_ug_l,an_new_sd_cm, an_old_sd_cm, pbm_new_sd_cm, pbm_old_sd_cm, source_file) %>% 
+  arrange(code_clean) %>% 
+mutate(sd = rowMeans(across(c(an_new_sd_cm, an_old_sd_cm, pbm_new_sd_cm, pbm_old_sd_cm)), na.rm = TRUE) / 100) %>% 
+  dplyr::select(!c(an_new_sd_cm, an_old_sd_cm, pbm_new_sd_cm, pbm_old_sd_cm))
 
+
+
+#Join the 2 files
 
 c3_extchl_files <- bind_rows(c3_j2023_extchl, c3_2024_25_extchl) %>% 
-  mutate(source_file = str_remove(source_file, "\\.csv$")) # remove csv extension from file name, and $ means at the end of name to avoid accidental removals
+  mutate(source_file = str_remove(source_file, "\\.csv$")) %>% # remove csv extension from file name, and $ means at the end of name to avoid accidental removals
+mutate(code_clean = str_trim(code_clean),          # Removes hidden spaces
+         code_clean = str_to_upper(code_clean),       # Ensures 'chl14' matches 'CHL14'
+         code_clean = str_remove(code_clean, "^.*_")) %>% # Removes prefixes if they exist  
+arrange(code_clean)
+
 
 
 ```
@@ -2637,17 +2944,26 @@ c3_extchl_files <- bind_rows(c3_j2023_extchl, c3_2024_25_extchl) %>%
 ```{r}
 
 
-c3_calib_data <- full_join(c3_cruises_data, c3_extchl_files, by = c("code", "source_file")) %>% 
+c3_calib_data <- full_join(c3_extchl_files, c3_cruises_data, by = c("code_clean", "source_file")) %>% 
   mutate(
     source_file_clean = ifelse(
-      source_file %in% c("c3_CR_27_June_2023", "Turner_C3_28June2023_cruise"),
+      source_file %in% c("c3_CR_27_June_2023", "Turner_C3_28_June2023_cruise"),
       "cruise-c3data-2023",
       source_file
     )
   ) 
 
-
  
+
+# Find codes in chl that ARE NOT in ext_chl
+mismatches <- anti_join(c3_calib_data, c3_extchl_files, by = "code_clean")
+
+unique(mismatches$source_file_clean)
+
+
+c3_calib_data_clean <- c3_calib_data %>% 
+    filter(!is.na(ext_chl), !is.na(chl)) %>% 
+  rename(code = code_clean)
 
 ```
 
@@ -2660,7 +2976,7 @@ c3_calib_data <- full_join(c3_cruises_data, c3_extchl_files, by = c("code", "sou
 ```{r}
 
 
-c3_spiking_expt24 <- expts_24 %>% 
+c3_spiking_expt24 <- exptsjul_24 %>% 
   filter(sos == "c3") %>% 
   mutate(code = site,
          chl = top_chl,
@@ -2681,8 +2997,7 @@ c3_spiking_expt24 <- expts_24 %>%
 
 ```{r}
 
-c3_calib_data %>% 
-  filter(!is.na(code), !is.na(chl)) %>% 
+  c3_calib_data_clean %>% 
   arrange(source_file_clean, chl) %>% 
   ggplot(aes(x = chl, y = ext_chl)) +
   #facet_wrap(~source_file_clean) +  
@@ -2693,7 +3008,8 @@ geom_point(color = "steelblue", size = 3.5) +
     size = 15,
     show.legend = FALSE
   ) +
-  theme_bw() +
+  labs(x= "chl_c3 (RFU)", y = "extracted_chlorophyll (ug/l)")+
+  theme_bw(base_size = 10) +
   theme(
     panel.background = element_blank(),
     panel.grid.major = element_blank(),
@@ -2710,11 +3026,11 @@ geom_point(color = "steelblue", size = 3.5) +
   guides(color = guide_legend(override.aes = list(size = 8)))
   
 
-ggsave(filename = "plots/CALIBc3/rship_c3chl~ext_gen_origdatachl60.png", width = 20, height = 15, dpi = 300)
+ggsave(filename = "plots/CALIBc3/plot_c3chl~ext_gen_origdata.png", width = 20, height = 15, dpi = 300)
   
   
-#model
-model_orig <- lm(ext_chl ~ chl, data = c3_calib_data)
+#model trial
+model_orig <- lm(ext_chl ~ chl, data = c3_calib_data_clean)
 
 
 plot(model_orig)
@@ -2722,9 +3038,9 @@ plot(model_orig)
 
 #Check prediction error explicitly with the original data
 
-c3_calib_data$pred <- predict(model_orig, newdata = c3_calib_data)
+c3_calib_data_clean$pred <- predict(model_orig, newdata = c3_calib_data_clean)
 
-ggplot(c3_calib_data, aes(chl, ext_chl - pred)) +
+ggplot(c3_calib_data_clean, aes(chl, ext_chl - pred)) +
   geom_point() +
   geom_hline(yintercept = 0, linetype = "dashed")
 
@@ -2749,21 +3065,16 @@ The nonlinearity is largely due to scale
 try a residual plot
 ```{r}
 
-c3_calib_data_clean <- c3_calib_data %>% 
-  filter(!is.na(ext_chl), !is.na(chl))
-
-
-
 
 model_log <- lm(log10(ext_chl) ~ log10(chl), data = c3_calib_data_clean)
 model_sqrt <- lm(sqrt(ext_chl) ~ sqrt(chl), data = c3_calib_data_clean)
 
 
-c3_calib_data$pred_log <- predict(model_log, newdata = c3_calib_data_clean)
-c3_calib_data$pred_sqrt <- predict(model_sqrt, newdata = c3_calib_data_clean)
+c3_calib_data_clean$pred_log <- predict(model_log, newdata = c3_calib_data_clean)
+c3_calib_data_clean$pred_sqrt <- predict(model_sqrt, newdata = c3_calib_data_clean)
 
-c3_calib_data$resid_log <- log10(c3_calib_data$ext_chl) - c3_calib_data_clean$pred_log
-c3_calib_data$resid_sqrt <- sqrt(c3_calib_data$ext_chl) - c3_calib_data_clean$pred_sqrt
+c3_calib_data_clean$resid_log <- log10(c3_calib_data_clean$ext_chl) - c3_calib_data_clean$pred_log
+c3_calib_data_clean$resid_sqrt <- sqrt(c3_calib_data_clean$ext_chl) - c3_calib_data_clean$pred_sqrt
 
 
 #log
@@ -2772,24 +3083,36 @@ ggplot(c3_calib_data_clean, aes(log10(chl), resid_log)) +
   geom_hline(yintercept = 0, linetype = "dashed")
 
 
+ggsave(filename = "plots/CALIBc3/rship_ext~chlc3_logtransformed_residual plot.png", width = 20, height = 20, dpi = 300)
+
+
+
 #sqrt
 ggplot(c3_calib_data_clean, aes(sqrt(chl), resid_sqrt)) +
   geom_point() +
   geom_hline(yintercept = 0, linetype = "dashed")
 
+ggsave(filename = "plots/CALIBc3/rship_ext~chlc3_sqrttransformed_residual plot.png", width = 20, height = 20, dpi = 300)
 
 
 ```
 
 
+The log-log transformation
+Random Scatter: The points are distributed like a "cloud" with no discernible shape (no curves, no slopes, no funnels). This confirms the linearity assumption is met (1:1).
+Centered at Zero: The points are evenly balanced above and below the dashed line. This means your model is no longer systematically over- or under-estimating the values.
+Homoscedasticity (Constant Variance): The vertical "spread" of the points is relatively consistent from left to right.
+
+The sqrt-sqrt transformation
+Heteroscedasticity is the main issue here... with some outliers influecing. The scatter is also not that great for linearity. 
+
 **Data transformation**
 
 
 
-+   log transformed
++   log transformed visuals
 
 ```{r}
-
 
 c3_calib_data_clean %>% 
   ggplot(aes(log10(chl), log10(ext_chl))) +
@@ -2800,7 +3123,7 @@ c3_calib_data_clean %>%
     size = 15,
     show.legend = FALSE
   ) +
-  theme_bw() +
+  theme_bw(base_size = 16) +
   theme(
     panel.background = element_blank(),
     panel.grid.major = element_blank(),
@@ -2817,14 +3140,13 @@ c3_calib_data_clean %>%
   guides(color = guide_legend(override.aes = list(size = 8)))
   
 
-ggsave(filename = "plots/CALIBc3/rship_c3chl~ext_transformed_gen.png", width = 20, height = 20, dpi = 300)
+ggsave(filename = "plots/CALIBc3/plot_extchl~c3chl_logtransformed_gen.png", width = 20, height = 20, dpi = 300)
 
 
 
 
 #facetted
-c3_calib_data %>% 
-   filter(source_file_clean != "c3_CR_JUN2025") %>% 
+c3_calib_data_clean %>% 
   ggplot(aes(log10(chl), log10(ext_chl), color = source_file_clean)) +
   geom_point(size = 4) +
   geom_smooth(method = "lm", se = FALSE, color = "red", linewidth = 1.5) +
@@ -2852,15 +3174,92 @@ c3_calib_data %>%
   
   
 
-ggsave(filename = "plots/CALIBc3/rship_c3chl~ext_transformedfacet_nojune.png", width = 30, height = 20, dpi = 300)
+ggsave(filename = "plots/CALIBc3/plot_extchl~c3chl_logtransformed_facet.png", width = 20, height = 20, dpi = 300)
 
 ```
 
-+   sqrt transformed
+
++ Log visuals transformed no June :)
+
 
 ```{r}
 
-c3_calib_data %>% 
+
+c3_calib_data_clean %>% 
+  filter(!source_file_clean%in% "c3_CR_JUN2025") %>% 
+  ggplot(aes(log10(chl), log10(ext_chl))) +
+  geom_point(size = 3.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "red", linewidth = 1.5) +
+  stat_regline_equation(
+    aes(label = paste(after_stat(eq.label), ..rr.label.., sep = "~~~~")),
+    size = 15,
+    show.legend = FALSE
+  ) +
+  theme_bw(base_size = 16) +
+  theme(
+    panel.background = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_line(colour = "gray90", linetype = "dotted", linewidth = 0.5),
+    legend.position = "bottom",
+      legend.text = element_text(size = 20),   # 👈 increases legend labels
+  legend.title = element_text(size = 18),
+  
+    axis.text = element_text(size = 30, margin = margin(t = 15)),
+    axis.title = element_text(size = 30),
+    axis.text.x = element_text(vjust = 1, hjust = 1),
+    plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+  ) +
+  guides(color = guide_legend(override.aes = list(size = 8)))
+  
+
+ggsave(filename = "plots/CALIBc3/plot_extchl~c3chl_logtransformed_NOJUNE.png", width = 20, height = 20, dpi = 300)
+
+
+
+
+#facetted
+c3_calib_data_clean %>% 
+  filter(!source_file_clean%in% "c3_CR_JUN2025") %>% 
+  ggplot(aes(log10(chl), log10(ext_chl), color = source_file_clean)) +
+  geom_point(size = 4) +
+  geom_smooth(method = "lm", se = FALSE, color = "red", linewidth = 1.5) +
+  facet_wrap(~ source_file_clean, scales = "free_y") +
+  stat_regline_equation(
+    aes(label = paste(after_stat(eq.label), ..rr.label.., sep = "~~~~")),
+    size = 6,
+    show.legend = FALSE
+  ) +
+  theme_bw(base_size = 18) +    #for scaling facets so they all look the same
+  theme(
+    panel.background = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_line(colour = "gray90", linetype = "dotted", linewidth = 0.5),
+    legend.position = "bottom",
+    legend.text = element_text(size = 16),
+    legend.title = element_text(size = 18),
+    axis.text = element_text(size = 18, margin = margin(t = 15)),
+    axis.title = element_text(size = 20),
+    axis.text.x = element_text(vjust = 1, hjust = 1),
+    strip.text = element_text(size = 16, face = "bold"),
+    plot.title = element_text(hjust = 0.5, size = 16, face = "bold")
+  ) +
+  guides(color = guide_legend(override.aes = list(size = 5)))
+  
+  
+
+ggsave(filename = "plots/CALIBc3/plot_extchl~c3chl_logtransformed_facetNOJUNE.png", width = 20, height = 20, dpi = 300)
+
+
+
+
+```
+
+
++   sqrt transformed visuals
+
+```{r}
+
+c3_calib_data_clean %>% 
   ggplot(aes(sqrt(chl), sqrt(ext_chl))) +
   geom_point(size = 3.5) +
   geom_smooth(method = "lm", se = FALSE, color = "red", linewidth = 1.5) +
@@ -2896,27 +3295,374 @@ ggsave(filename = "plots/CALIBc3/rship_c3chl~ext_sqrttransformedfacet.png", widt
 
 c3 log model with no env _ log transformed chl
 
+
 ```{r}
+#Adding scale avoids collinearity issues and makes interactions interpretable.
 
-model_log <- lm(log(ext_chl) ~ log(chl), data = c3_calib_data_clean)
-  
-  
-summary(model_log)
+#Since sd has many NAs, we will remove this variable from the chl calibration for now
 
-par(mfrow = c(2, 2))
-plot(model_log)
+
+c3_model_data <- c3_calib_data_clean %>%
+  dplyr::select(!sd) %>% 
+  mutate(
+    log_ext_chl = log10(ext_chl),
+    log_chl     = log10(chl),
+    log_pc      = log10(pc)
+  ) %>%
+  mutate(
+    log_chl_c = scale(log_chl, scale = FALSE),
+    log_pc_c  = scale(log_pc,  scale = FALSE),
+    temp_c    = scale(temp,    scale = FALSE)
+  )
+
 
 
 ```
 
-Check diagnostics
+
+
+
+
+
+
+
+
+
+
++ Check model without June data
+```{r}
+#model no June
+
+c3_model_data_nj <- c3_model_data %>% 
+  filter(!source_file_clean %in% c("June 2025"))
+model_nj <- lm(log_ext_chl ~ log_chl, data = c3_model_data_nj)
+summary(model_nj)
+
+par(mfrow = c(2,2))
+plot(model_nj)
+
+
+
+#Best model from all cruises without June
+
+#model eqn with no June (y = 0.45x + 0.48)
+
+# Manual Log Prediction: y = (Slope * x) + Intercept
+c3_model_data$pred_chl_nj <- (0.45 * c3_model_data$log_chl_c) + 0.48
+
+sigma_global <- summary(model_test)$sigma
+bcf_ancova <- exp((sigma_global^2 / 2) * (log(10)^2))
+
+
+```
+
+
+
+TRY ANCOVA MODEL: check cruise interaction: see difference in cruises, are they significant?)
+
+```{r}
+
+model_test <- lm(log_ext_chl ~ log_chl * source_file_clean, data = c3_model_data)
+summary(model_test)
+
+#all data_only log
+par(mfrow = c(2, 2))
+plot(model_test)
+
+```
+
+Check cruises fit using ANCOVA (Analysis of Covariance)
+
++ The model uses Nov 2024 cruise as a baseline cruise and how other cruises deviate from this baseline. 
+
+ANCOVA combines a continuous variable (log10(chl)) with a categorical variable (cruise_id or source_file_clean). It answers two main questions:
+
+Intercept Shift: Does a specific cruise start at a higher or lower baseline? 
+Slope Change: Does the relationship change between cruises? (How much Y changes with a unit increase in X..... since we are doing log10, we consider every 10^(x) increase in X) OR if the sensor's sensitivity (the rate of change) shifted across cruises. 
+
++ Main Effects (the cruises): These show if a cruise is shifted "up" or "down" (the Intercept). Does the cruise have a higher or lower "starting point?
++ Interaction Terms (the log10(chl):cruise rows): These show if the slope is steeper or flatter.
+
+
+By using the November cruise as the reference "baseline," we can pinpoint exactly how other cruises deviate in two ways:
+
++Intercept shifts: Offset: in April 2025 and June 2025 both have significant p-values (0.016 and 0.002)
+), meaning their readings are naturally shifted higher than the November baseline, regardless of the chlorophyll concentration
+
++Slope Change (Interaction Terms):While June 2023 and July 2024 follow the same slope as November, June 2025 is a major outlier. Its interaction term is highly significant (0.001), with a slope that is significantly flatter (by -0.58) than the baseline. For calculations, u have to either add or subtract the estimate of the indiv cruise from the baseline.
+
++ Better fit by accounting for the cruises. should we make a season or cruise corrected model? YES
+
++ While a simple linear regression assumes one rule applies to all, an ANCOVA (Analysis of Covariance) allows for different groups to have their own rules or starting point. So when we do the prediction , each cruise is treated independently. 
+
+Conclusion: Because you are using a log-log model (both x and y arelog10 ), we talk in percentages.
+For every 1% increase in c3_chl, ext_chl increases by b1*% (where by is your slope). E.g For April, if c3_Chl increases by 1%, ext_chl would increase by 0.58%.
+
+
++ Extract model coefficients  per cruise
+```{r}
+
+model_ancova <- model_test
+
+# 1. Extract the coefficients
+cf <- coef(model_ancova)
+
+# 2. Identify the cruise names (excluding the baseline parts)
+
+cruises <- names(cf)[grepl("source_file_clean", names(cf)) & !grepl("log10", names(cf))]
+cruise_names <- gsub("source_file_clean", "", cruises)
+
+
+
+# 3. Create the Baseline entry
+results <- data.frame(
+  Cruise = "Baseline (Reference)",
+  Intercept = cf["(Intercept)"],
+  Slope = cf["log_chl"]
+)
+
+# 4. Loop through and calculate the actual coefficients for the other cruises
+
+for (i in seq_along(cruises)) {
+  c_name <- cruise_names[i]
+  
+  # New Intercept = Baseline Intercept + Cruise Offset
+  intercept_val <- cf["(Intercept)"] + cf[cruises[i]]
+  
+  # New Slope = Baseline Slope + Interaction Offset
+  # We find the interaction term that matches the cruise name
+  inter_term <- names(cf)[grepl("log_", names(cf)) & grepl(cruises[i], names(cf))]
+  slope_val <- cf["log_chl"] + cf[inter_term]
+  
+  results <- rbind(results, data.frame(
+    Cruise = c_name,
+    Intercept = unname(intercept_val),
+    Slope = unname(slope_val)
+  ))
+}
+
+
+
+print(results)
+
+
+
+
+
+```
+
++ Plot visuals
+
+```{r}
+
+#reorder cruises by month and year
+
+#Use the ORIGINAL values as they appear in your data right now
+
+
+original_values <- c(
+  "cruise-c3data-2023", 
+  "c3_CR_24JUL2024", 
+  "c3_CR_NOV2024", 
+  "c3_CR_APR2025", 
+  "c3_CR_JUN2025"
+)
+
+
+# Define the chronological order manually
+chron_order <- c(
+  "June 2023", 
+  "July 2024", 
+  "November 2024", 
+  "April 2025", 
+  "June 2025"
+)
+
+
+
+# 3. Create the factor using both
+c3_model_data$source_file_clean <- factor(
+  c3_calib_data_clean$source_file_clean, 
+  levels = original_values,  # What R looks for
+  labels = chron_order     # What R displays on the plot
+)
+
+
+#plot coefficients
+ggplot(c3_model_data, aes(x=log_chl, y=log_ext_chl, color = source_file_clean)) +
+  geom_point(alpha = 0.5) + # Plots the actual data points with some transparency
+  geom_smooth(method = "lm", se = FALSE) + # Adds the separate regression lines
+  facet_wrap(~source_file_clean) +
+ 
+  labs(
+    title = "Calibration Curves by Cruise",
+    x = "log10(Chl)",
+    y = "log10(ext_chl)",
+    color = "Cruise ID"
+  ) +
+  
+  theme_bw(base_size = 18) +
+  theme(
+    panel.background = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_line(colour = "gray90", linetype = "dotted", linewidth = 0.5),
+    legend.position = c(0.83, 0.22), # Moves legend to the empty 6th facet
+      legend.text = element_text(size = 30),   # 👈 increases legend labels
+  legend.title = element_text(size = 25),
+  
+    axis.text = element_text(size = 16, margin = margin(t = 15)),
+    axis.title = element_text(size = 30),
+    axis.text.x = element_text(vjust = 1, hjust = 1),
+    plot.title = element_text(hjust = 0.5, size = 30, face = "bold"),
+  ) +
+  guides(color = guide_legend(override.aes = list(size = 8))) + 
+  
+  stat_regline_equation(
+    aes(label = paste(after_stat(eq.label), after_stat(rr.label), sep = "~~~~")),
+    size = 12,           
+    label.y = 2.5,     
+    show.legend = FALSE
+  )
+
+
+
+#General plot one equation
+
+ggplot(c3_model_data, aes(x = log_chl, y = log_ext_chl)) +
+  geom_point(alpha = 0.6, size = 2) + 
+  geom_smooth(method = "lm", se = FALSE, linewidth = 1.2) +
+  #facet_wrap(~source_file_clean, ncol = 3) + # Ensures 3 columns
+  scale_color_viridis_d(option = "plasma", end = 0.8) + # High contrast but professional
+  stat_regline_equation(
+    aes(label = paste(after_stat(eq.label), after_stat(rr.label), sep = "~~~~")),
+    size = 8, label.y.npc = 1 # Keeps text away from the very top
+  ) +
+  labs(
+    #title = "Calibration Curves by Cruise",
+    x = "log10(c3_Chl(RFU))",
+    y = "log10(extracted chlorophyll_a (ug/l))")+
+    
+  theme_bw(base_size = 30) +
+  theme(
+    legend.position = c(0.83, 0.22), #The "Magic" positioning
+    legend.title = element_text(size = 22),
+    legend.text = element_text(size = 25),
+    panel.grid.minor = element_blank(),
+    strip.background = element_rect(fill = "gray95"), # Cleaner facet tabs
+    strip.text = element_text(size = 30, face = "bold"),
+    
+    axis.text = element_text(size = 18, margin = margin(t = 15)),
+    axis.title = element_text(size = 30),
+    axis.text.x = element_text(vjust = 1, hjust = 1),
+    plot.title = element_text(hjust = 0.5, size = 30, face = "bold")
+    ) 
+   #guides(color = guide_legend(override.aes = list(size = 10))) 
+  
+
+ggsave(filename = "plots/CALIBc3/GLOBAL_plot_c3chl~ext_gen_logdata.png", width = 20, height = 20, dpi = 300)
+
+#####################
+
+#ANCOVA General plot 2 with all 5 equations
+
+ggplot(c3_model_data, aes(x = log10(chl), y = log10(ext_chl), color = source_file_clean)) +
+  geom_point(alpha = 0.6, size = 2) + 
+  geom_smooth(method = "lm", se = FALSE, linewidth = 1.2) +
+  #facet_wrap(~source_file_clean, ncol = 3) + # Ensures 3 columns
+  scale_color_viridis_d(option = "plasma", end = 0.8) + # High contrast but professional
+  stat_regline_equation(
+    aes(label = paste(after_stat(eq.label), after_stat(rr.label), sep = "~~~~")),
+    size = 8, label.y.npc = 1 # Keeps text away from the very top
+  ) +
+  labs(
+    #title = "Calibration Curves by Cruise",
+    x = "log10(c3_Chl(RFU))",
+    y = "log10(extracted chlorophyll_a (ug/l))")+
+    
+  theme_bw(base_size = 20) +
+  theme(
+    legend.position = c(0.83, 0.22), #The "Magic" positioning
+    legend.title = element_text(size = 25),
+    legend.text = element_text(size = 28),
+    panel.grid.minor = element_blank(),
+    strip.background = element_rect(fill = "gray95"), # Cleaner facet tabs
+    strip.text = element_text(size = 30, face = "bold"),
+    
+    axis.text = element_text(size = 20, margin = margin(t = 15)),
+    axis.title = element_text(size = 30),
+    axis.text.x = element_text(vjust = 1, hjust = 1),
+    plot.title = element_text(hjust = 0.5, size = 30, face = "bold")
+    ) +
+   guides(color = guide_legend(override.aes = list(size = 16))) 
+  
+
+
+
+ggsave(filename = "plots/CALIBc3/coff_plot_ext~c3chl_gen_logdata.png", width = 20, height = 20, dpi = 300)
+
+
+
+##################################################
+
+
+#cleaner plot_Facetted plots
+ggplot(c3_model_data, aes(x = log10(chl), y = log10(ext_chl), color = source_file_clean)) +
+  geom_point(alpha = 0.6, size = 2) + 
+  geom_smooth(method = "lm", se = FALSE, linewidth = 1.2) +
+  facet_wrap(~source_file_clean, ncol = 3) + # Ensures 3 columns
+  scale_color_viridis_d(option = "plasma", end = 0.8) + # High contrast but professional
+  stat_regline_equation(
+    aes(label = paste(after_stat(eq.label), after_stat(rr.label), sep = "~~~~")),
+    size = 8, label.y.npc = 1 # Keeps text away from the very top
+  ) +
+  labs(
+    title = "Calibration Curves by Cruise",
+    x = "log10(c3_Chl(RFU))",
+    y = "log10(extracted chlorophyll_a (ug/l))")+
+    
+  theme_bw(base_size = 16) +
+  theme(
+    legend.position = "none",
+    #legend.title = element_text(size = 22),
+    #legend.text = element_text(size = 25),
+    panel.grid.minor = element_blank(),
+    strip.background = element_rect(fill = "gray95"), # Cleaner facet tabs
+    strip.text = element_text(size = 30, face = "bold"),
+    
+    axis.text = element_text(size = 18, margin = margin(t = 15)),
+    axis.title = element_text(size = 30),
+    axis.text.x = element_text(vjust = 1, hjust = 1),
+    plot.title = element_text(hjust = 0.5, size = 30, face = "bold")
+    ) 
+  
+ # guides(color = guide_legend(override.aes = list(size = 10))) 
+  
+
+
+
+ggsave(filename = "plots/CALIBc3/coff_plot_c3chl~ext_facet_logdata.png", width = 20, height = 20, dpi = 300)
+  
+
+
+```
+
+
+The global plot **one size fits all** is not the best because it is being pulled by outlier cruises. Because cruises like April and June 2025 have very high values even at low chlorophyll (the "higher starting points" we discussed), they drag the entire blue line upward. The slope in this image is "flatter" because it is trying to compromise between the good cruises and that very flat June cruise. This is exactly why the R is so low (0.22)). The line doesn't actually represent any of the cruises well; it just goes through the middle of the mess. 
+
+
+
+Check diagnostics for ANCOVA model
 
 ```{r}
 library(car)
 
 
 #check for multicollinearity
-vif(model_2) #If VIF > 5–10 → variables are overlapping. Which is not the case here
+
+vif_results <- vif(model_ancova, type = "predictor")
+print(vif_results)
+
+#vif(model_test) #If VIF > 5–10 → variables are overlapping. Which is not the case here
 
 
 #check residuals normality..etc
@@ -2924,6 +3670,8 @@ par(mfrow = c(2, 2))
 plot(model_2)
 
 ```
+
+For interaction terms, look at GVIF^(1/2*F)... VIF is relatively okay <5. So our model doesn't have redundant predictors.
 
 
 
@@ -2934,24 +3682,25 @@ Is my sonde calibration stable across environmental gradients?
 + check visuals with env
 ```{r}
 
+
 ### check r/ships with ext_chl_Need for data transformation?
 
-ggplot(c3_calib_data, aes(temp, log10(ext_chl))) + geom_point()
-ggplot(c3_calib_data, aes(pc, log10(ext_chl))) + geom_point()
-ggplot(c3_calib_data, aes(sd, log10(ext_chl))) + geom_point()
+ggplot(c3_model_data, aes(temp, log10(ext_chl))) + geom_point()
+ggplot(c3_model_data, aes(pc, log10(ext_chl))) + geom_point()
+ggplot(c3_model_data, aes(sd, log10(ext_chl))) + geom_point()
 
 
 #sd relationship _Yes, log trasnform for sd and pc. No need for temp
-ggplot(c3_calib_data, aes(sd, log10(ext_chl))) +
+ggplot(c3_model_data, aes(sd, log10(ext_chl))) +
   geom_point() +
   geom_smooth(method = "loess", se = FALSE, color = "red")
 
 
 
 #Plot slopes by environment....... sd seems to show some interaction coz the slope at high sd changes
-c3_calib_data %>% 
+c3_model_data %>% 
   filter(!is.na(sd)) %>% 
-ggplot(aes(log10(chl), log10(ext_chl))) +
+ggplot(aes(log_chl, log_ext_chl)) +
   geom_point() +
   geom_smooth(method = "lm") +
   facet_wrap(~ cut(log10(sd), 3))
@@ -2961,53 +3710,68 @@ ggplot(aes(log10(chl), log10(ext_chl))) +
 + models with interaction
 
 ```{r}
+#Fit FULL interaction model (Main effects: chl, pc, temp and sd).. plus interaction chl*pc, chl*sd, chl*temp) * cruise
 
 
-#This avoids collinearity issues and makes interactions interpretable.
 
-
-c3_model_data <- c3_calib_data_clean %>%
-  mutate(
-    log_ext_chl = log10(ext_chl),
-    log_chl     = log10(chl),
-    log_sd      = log10(sd),
-    log_pc      = log10(pc)
-  ) %>%
-  mutate(
-    log_chl_c = scale(log_chl, scale = FALSE),
-    log_sd_c  = scale(log_sd,  scale = FALSE),
-    log_pc_c  = scale(log_pc,  scale = FALSE),
-    temp_c    = scale(temp,    scale = FALSE)
-  )
-
-
-#Fit FULL interaction model (Main effects: chl, pc, temp and sd).. plus interaction chl*pc, chl*sd, chl*temp
-
+# 1. Build the Complex Interaction Model
+# This formula includes 3-way interactions between Chlorophyll, 
+# environmental factors, and the Cruise ID.
 model_int <- lm(
-  log_ext_chl ~ log_chl_c * (log_sd_c + log_pc_c + temp_c),
+  log_ext_chl ~ log_chl_c * (log_sd_c + log_pc_c + temp_c) * source_file_clean,
   data = c3_model_data
 )
 
 
+
+# 2. View the full results
+# Warning: This will be a very long table of coefficients!
 summary(model_int)
 
+# 3. Check for Multicollinearity
+# With this many interactions, expect high GVIF values.
+library(car)
+vif(model_int, type = "predictor")
+```
 
-#check for multicollinaerity
-vif(model_int)
+compare models: ANCOVA Simpler vs Interaction model
+```{r}
+# 4. Compare to your previous ANCOVA model
 
 
-#Only significant variables
-model_int2 <- lm(
-  log_ext_chl ~ log_chl_c * (log_pc_c),
-  data = c3_model_data)
+# 1. Create a "complete cases" subset
+# This keeps only rows where ALL these variables are present
+df_clean_subset <- c3_model_data %>%
+  filter(!is.na(log_ext_chl), 
+         !is.na(log_chl_c), 
+         !is.na(log_sd_c), 
+         !is.na(log_pc_c), 
+         !is.na(temp_c), 
+         !is.na(source_file_clean))
+
+# 2. Re-run both models on this IDENTICAL dataset
+model_ancova_subset <- lm(log_ext_chl ~ log_chl_c * source_file_clean, 
+                          data = df_clean_subset)
+
+model_int_subset <- lm(log_ext_chl ~ log_chl_c * (log_sd_c + log_pc_c + temp_c) * source_file_clean, 
+                       data = df_clean_subset)
+
+# 3. Now run the comparison
+anova(model_ancova_subset, model_int_subset)
 
 
-summary(model_int2)
+AIC(model_ancova_subset, model_int_subset)
+
+
+# # This calculates the total 'impact' (Sum of Squares) for each factor
+influence_test <- Anova(model_int_subset, type = "II")
+print(influence_test)
+
 
 
 ```
 
-check diagnostics
+check diagnostics for ANCOVA int model
 ```{r}
 
 par(mfrow = c(2, 2))
@@ -3017,21 +3781,41 @@ plot(model_int)
 ```
 
 
-Compare models with the simpler model
-
++ Predicted ext chl using ANCOVA (internal training)
 ```{r}
 
-anova(model_orig, model_log, model_sqrt, model_int)
 
-AIC(model_orig, model_log, model_sqrt, model_int)
+
+# BCF for the ANCOVA Model
+model_ancova <- lm(log_ext_chl ~ log_chl * source_file_clean, data = c3_model_data)
+
+c3_model_data$pred_ancova <- predict(model_ancova, newdata = c3_model_data)
+sigma_ancova <- summary(model_ancova)$sigma
+bcf_ancova <- exp((sigma_ancova^2 / 2) * (log(10)^2))
+c3_model_data$pred_extchl_ancova <- (10^c3_model_data$pred_ancova) * bcf_ancova
+
 
 ```
 
 
-The AICs in the interaction model and sqrt model are higher than in the simpler model so it doesn't improve our chl prediction.
 
 
-+ Try a GAM
+Compare models with the simpler model (sd inclusive)
+
+```{r}
+
+anova(model_ancova_subset, model_int_subset)
+
+
+AIC(model_ancova_subset, model_int_subset)
+
+```
+
+
+The AICs in the interaction model is lower than in the simpler model but it only slightly improves the R2 of our chl prediction, and yet it takes up more 27 degrees of freedom.
+
+
++ Try a GAM : Leave this code here for now
 ```{r}
 
 
@@ -3068,7 +3852,506 @@ The pvalue is < 0.05, which would imply that the chl explains the ext_chl
 
 The deviance explained is 21.8% (model fit).
 
+########################################################################################
 
++ bias correction on the c3 data we used for calibration.
+
+    + Log transformation compresses large values
+    + When you back-transform, you don’t fully recover the spread
+    + So predictions are biased low
+    + The correction inflates them slightly to compensate so that the high values are not under   estimated
+    +10^(pred_log) → gives you the median prediction but it is a biased estimate of the mean..This raises 10 to the power of every number in that column, effectively "un-logging" the data 
+
+
++  correct the bias to the series using sigma (if residuals are normally distributed) or Duan's smearing estimator if residuals are not normally dist. Duan's estimator is more robust and doesn't assume perfect normal residues... but our log transformed data has normal.. sigma2 is the residual variance of the model
+    
++ Predicted values on training data / internal validation
+
+    + Steps: Predict values in log_space, back transform to the original scale, and then add a bias correction term
+    
+    
++   log model _ No interaction
+
+```{r}
+
+
+model_global <- lm(log_ext_chl ~ log_chl, data = c3_model_data)
+
+c3_model_data$pred_log <- predict(model_global, newdata = c3_model_data)
+
+sigma_log <- summary(model_global)$sigma^2
+
+bcf_log <- exp((sigma_log^2 / 2) * (log(10)^2)) #corrects log bias
+
+c3_model_data$pred_ext_chl_global <- 10^(c3_model_data$pred_log) * bcf_log
+
+
+
+# Calculate metrics
+
+library(Metrics)
+
+rmse(c3_model_data$ext_chl, c3_model_data$pred_ext_chl_global) #residual mean of squared erros
+mae(c3_model_data$ext_chl, c3_model_data$pred_ext_chl_global) #mean abs error
+
+
+# Plot observed vs predicted
+
+
+plot(x = c3_model_data$chl, y = c3_model_data$pred_ext_chl_global)
+
+library(ggplot2)
+
+ggplot(c3_model_data, aes(x = ext_chl, y = pred_ext_chl_global)) +
+  
+  # Points
+  geom_point(size = 3, alpha = 0.7, color = "black") +
+  
+  # 1:1 line (perfect prediction)
+  geom_abline(slope = 1, intercept = 0, 
+              color = "red", linetype = "dashed", linewidth = 1.2) +
+  
+  # Regression line (your model fit)
+  geom_smooth(method = "lm", se = FALSE, 
+              color = "blue", linewidth = 1.5) +
+  
+  labs(
+    x = "Observed Chlorophyll (µg/L)",
+    y = "Predicted Chlorophyll (µg/L)",
+    title = "Calibration of Sonde Chlorophyll"
+  ) +
+  
+  theme_bw(base_size = 18) +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_line(colour = "gray90", linetype = "dotted"),
+    plot.title = element_text(hjust = 0.5, face = "bold")
+  )
+
+
+ggsave(file="plots/CALIBc3/plot_av_predictedvsobs_extchl_regression.png", width = 16, height = 10, dpi = 300)
+
+
+
+
+```
+
+*Notes
+sigma^2 in your R output is calculated based on log10 steps."
+exp expects "natural log" steps.
+The (log(10)^2) (which is about 5.3) acts as the translator between the two.
+If you don't include that your correction will be about 5 times smaller than it should be!
+
+
+
+
+Mixed effects model?
+
+```{r}
+
+c3_model_data$source_file_clean <- relevel(
+  factor(c3_model_data$source_file_clean), 
+  ref = "c3_CR_NOV2024" 
+)
+
+
+#using uncentered log data
+
+
+# 1. Run the Fixed Effects Model (lm)
+# This treats the 'Standard' vs 'Outlier' as hard categories
+model_fixed <- lm(log_ext_chl ~ log_chl + source_file_clean, data = c3_model_data)
+summary(model_fixed)
+
+# 2. Run the Mixed Effects Model (lmer)
+# This treats each cruise as a random sample from a larger population
+library(lme4)
+model_mixed <- lmer(log_ext_chl ~ log_chl + (1 | source_file_clean), data = c3_model_data)
+summary(model_mixed)
+
+
+
+
+```
+
++ Predict values for lmer model (accounts for cruise as random effect)
+
+```{r}
+
+
+# 1. Extract Fixed Effects and Sigma
+coeffs <- fixef(model_mixed)
+b0 <- coeffs["(Intercept)"]
+b1 <- coeffs["log_chl"]
+sig <- sigma(model_mixed)
+
+
+
+# 2. Calculate Bias Correction Factor (BCF)
+bcf_mm <- exp((sig^2 / 2) * (log(10)^2))
+
+# 3. Predict for your dataset
+c3_model_data <- c3_model_data %>%
+  mutate(
+    log_pred_mm   = b0 + (b1 * log_chl),  #predict data using the model
+    pred_ext_mm = (10^log_pred_mm) * bcf_mm   #back transform
+  )
+
+
+```
+
++ Plot all the predicted values by the various models
+
+```{r}
+
+
+c3_model_data_long <- c3_model_data %>% 
+  pivot_longer(
+    cols = c(ext_chl, pred_ext_chl_global, pred_extchl_ancova,pred_ext_mm),
+    names_to = "model",
+               values_to = "chlorophyll") %>%
+mutate(type = ifelse(model == "ext_chl", "Observed", "Predicted"))
+
+
+
+ggplot(
+  c3_model_data,
+  aes(x = ext_chl)
+) +
+  geom_point(aes(y = pred_ext_chl_global, color = "Global model"), size = 2) +
+  geom_point(aes(y = pred_extchl_ancova, color = "ANCOVA model"), size = 2) +
+  geom_point(aes(y = pred_ext_mm, color = "Mixed model"), size = 2) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+  
+
+  labs(
+    x = "Observed Extracted Chlorophyll",
+    y = "Predicted Extracted Chlorophyll",
+    color = "Model"
+  ) +
+  theme_bw(base_size = 10) +
+  theme(
+    panel.background = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_line(colour = "gray90", linetype = "dotted", linewidth = 0.5),
+    legend.position = "right",
+      legend.text = element_text(size = 12),   # 👈 increases legend labels
+  legend.title = element_text(size = 14),
+  
+    axis.text = element_text(size = 16, margin = margin(t = 15)),
+    axis.title = element_text(size = 14),
+    axis.text.x = element_text(vjust = 1, hjust = 1),
+    #plot.title = element_text(hjust = 0.5, size = 30, face = "bold"),
+  ) 
+
+#+  guides(color = guide_legend(override.aes = list(size = 8))) + 
+  
+
+
+ggsave(file="plots/CALIBc3/plot_models_predictedvsobs_extchl.png", width = 16, height = 10, dpi = 300)
+
+
+
+
+# Calculate metrics
+
+library(Metrics)
+
+rmse_global <- rmse(c3_model_data$ext_chl, c3_model_data$pred_ext_chl_global) #residual mean of squared erros
+mae_global <- mae(c3_model_data$ext_chl, c3_model_data$pred_ext_chl_global) #mean abs error
+
+rmse_ancova <- rmse(c3_model_data$ext_chl, c3_model_data$pred_extchl_ancova) #residual mean of squared erros
+mae_ancova <- mae(c3_model_data$ext_chl, c3_model_data$pred_extchl_ancova) #mean abs error
+
+rmse_mm <- rmse(c3_model_data$ext_chl, c3_model_data$pred_ext_mm) #residual mean of 
+mae_mm <- mae(c3_model_data$ext_chl, c3_model_data$pred_ext_mm) #mean abs error
+
+
+rmse_table <- tibble(rmse_global,mae_global, rmse_ancova, mae_ancova, rmse_mm, mae_mm)
+
+
+```
+
+Notes:
+ANCOVA (Red): Because it knows the specific cruise for every point, it stays closest to the 1:1 line, especially at higher concentrations. It is your most accurate model for the data you already have.
+The Global (Green) and Mixed (Blue) are "The Averages": They sit on top of each other because they are both trying to find one universal rule. You can see them start to "peel away" from the 1:1 line and underestimate once observed chlorophyll gets above 25ug/l
+.
+The High-End Crash: the far right (observed ~85ug/l). Every model failed here, but the ANCOVA (red) was the only one that even tried to get close. This shows that at very high concentrations, the simple linear relationship is struggling.
+
+
+
+
++ Zoom in at points in the 0-20ug/l range where most points fall
+
+```{r}
+
+
+
+ggplot(
+  c3_model_data,
+  aes(x = ext_chl)
+) +
+  geom_point(aes(y = pred_ext_chl_global, color = "Global model"), size = 2) +
+  geom_point(aes(y = pred_extchl_ancova, color = "ANCOVA model"), size = 2) +
+  geom_point(aes(y = pred_ext_mm, color = "Mixed model"), size = 2) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+  
+coord_cartesian(xlim = c(0, 25), ylim = c(0, 25)) +
+  scale_color_manual(values = c("ANCOVA model" = "#F8766D", 
+                                "Global model" = "#00BA38", 
+                                "Mixed model"  = "#619CFF")) +
+  
+  
+  labs(
+    x = "Observed Extracted Chlorophyll",
+    y = "Predicted Extracted Chlorophyll",
+    color = "Model"
+  ) +
+  theme_bw(base_size = 10) +
+  theme(
+    panel.background = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_line(colour = "gray90", linetype = "dotted", linewidth = 0.5),
+    legend.position = "right",
+      legend.text = element_text(size = 12),   # 👈 increases legend labels
+  legend.title = element_text(size = 14),
+  
+    axis.text = element_text(size = 16, margin = margin(t = 15)),
+    axis.title = element_text(size = 14),
+    axis.text.x = element_text(vjust = 1, hjust = 1)
+    #plot.title = element_text(hjust = 0.5, size = 30, face = "bold"),
+  ) 
+
+#+  guides(color = guide_legend(override.aes = list(size = 8))) + 
+  
+
+
+ggsave(file="plots/CALIBc3/plot_models_Zoomedpredictedvsobs_extchl.png", width = 16, height = 10, dpi = 300)
+
+
+
+
+
+
+ 
+  
+
+
+```
+
+
+The "Vertical Stacks": Notice how the Blue (Mixed) and Green (Global) dots often form vertical lines. This is because those models only "see" the sonde value. If two different samples on two different days had the same sonde reading, these models give them the exact same prediction, even if the lab results were miles apart.
+
+The "Floor" Effect: There is a heavy cluster of predictions between 5 and 10ug/l. The models are very hesitant to predict anything lower than 5, even when the observed lab data is near 2.
+
+Overestimation at the Low End: Below an observed value of 5, almost all the dots (including the red ANCOVA ones) are above the dashed line. The models are "optimistic" at low concentrations, likely due to the intercept and the BCF multiplier.
+
+ANCOVA (Red) still wins: See the red dots "stretching" better to follow the diagonal. It’s the only model that successfully uses the "cruise context" to move the prediction closer to the truth.
+
+
++ RMSE for the Zoomed in range
+
+```{r}
+
+# 1. Filter the data to the 0-20 observed range
+
+model_wide_zoom <- c3_model_data_long %>%
+  pivot_wider(names_from = model, values_from = chlorophyll) %>%
+  # Filter for the "Zoom" range based on actual lab data
+  filter(ext_chl < 25)
+
+
+
+
+
+# 2. Calculate RMSE for each model in this subset
+rmse_zoom <- model_wide_zoom %>%
+  summarise(
+    RMSE_ANCOVA = sqrt(mean((ext_chl - pred_extchl_ancova)^2, na.rm = TRUE)),
+    RMSE_Global = sqrt(mean((ext_chl - pred_ext_chl_global)^2, na.rm = TRUE)),
+    RMSE_Mixed  = sqrt(mean((ext_chl - pred_ext_mm)^2, na.rm = TRUE))
+  )
+
+print(rmse_zoom)
+
+
+rmse_global <- rmse(model_wide_zoom$ext_chl, model_wide_zoom$pred_ext_chl_global) #residual mean of squared erros
+mae_global <- mae(model_wide_zoom$ext_chl, model_wide_zoom$pred_ext_chl_global) #mean abs error
+
+rmse_ancova <- rmse(model_wide_zoom$ext_chl, model_wide_zoom$pred_extchl_ancova) #residual mean of squared erros
+mae_ancova <- mae(model_wide_zoom$ext_chl, model_wide_zoom$pred_extchl_ancova) #mean abs error
+
+rmse_mm <- rmse(model_wide_zoom$ext_chl, model_wide_zoom$pred_ext_mm) #residual mean of 
+mae_mm <- mae(model_wide_zoom$ext_chl, model_wide_zoom$pred_ext_mm) #mean abs error
+
+
+rmse_table_zoom <- tibble(rmse_global,mae_global, rmse_ancova, mae_ancova, rmse_mm, mae_mm)
+print(rmse_table_zoom)
+
+```
+
+
+
+# Model validation (Mixed effects model)
+
++   Test/Train 
+
+```{r}
+
+#library(boot)
+
+#cv.glm(c3_calib_data_clean, model_log, K = 10)$delta
+
+
+library(dplyr)
+
+set.seed(123)
+
+K <- 10
+folds <- sample(rep(1:K, length.out = nrow(c3_model_data)))
+
+cv_results <- data.frame()
+
+for (k in 1:K) {
+  
+  train <- c3_model_data[folds != k, ]
+  test  <- c3_model_data[folds == k, ]
+  
+# 1. Extract Fixed Effects and Sigma
+
+model <- model_mixed
+coeffs <- fixef(model_mixed)
+b0 <- coeffs["(Intercept)"]
+b1 <- coeffs["log_chl"]
+sig <- sigma(model_mixed)
+
+
+# 2. Calculate Bias Correction Factor (BCF)
+bcf_mm <- exp((sig^2 / 2) * (log(10)^2))
+
+# 3. Predict for your dataset
+test <- test %>%
+  mutate(
+    log_pred_mm   = b0 + (b1 * log_chl),  #predict data using the model
+    pred_ext_mm = (10^log_pred_mm) * bcf_mm   #back transform
+  )
+
+  
+  # Store results
+  cv_results <- rbind(cv_results, test)
+}
+
+# Final RMSE: the square root of the average of squared differences between observed and predicted values
+rmse_mm_2 <- rmse(cv_results$ext_chl, cv_results$pred_ext_mm)
+
+
+
+```
+
+The root mean square error between the actual ext chl and predicted is `r rmse_mm_2` ug/l. It is the same as the rmse from before with all the values. Put simply, it shows, on average, how far the predictions are from the actual values, in the same scale as the outcome variable. 
+
+
+
++ Let's try to break down the chl ranges
+
+
+```{r}
+
+median_chl <- median(cv_results$chl, na.rm = TRUE)
+
+cv_results <- cv_results %>%
+  mutate(chl_group = ifelse(chl <= median_chl, "Low", "High"))
+
+
+# compare rmse per group
+
+library(dplyr)
+library(Metrics)
+
+cv_results %>%
+  group_by(chl_group) %>%
+  summarise(
+    RMSE = rmse(ext_chl, pred_ext_chl),
+    MAE  = mae(ext_chl, pred_ext_chl),
+    n    = n()
+  )
+
+
+```
+
+
+At low chl (less than median chl), `r median_chl`, the RMSE is lower while at higher chl, the RMSE increases to 115.
+
+
+Leave one cruise out cross validation (LOOCV)_____try this again
+
+```{r}
+
+library(caret)
+
+
+#New try
+
+library(dplyr)
+library(Metrics)
+
+# 1. Clean data 
+
+# 2. Get unique cruises
+cruises <- unique(c3_calib_data_clean$source_file)
+
+# 3. Initialize results storage
+cv_cruise_results <- data.frame()
+
+# 4. LOOCV loop (leave one cruise out)
+for (c in cruises) {
+  
+  train <- c3_calib_data_clean %>% filter(cruises != c)
+  test  <- c3_calib_data_clean %>% filter(cruises == c)
+  
+  # Skip if not enough data
+  if (nrow(train) < 5 | nrow(test) < 2) next
+  
+  # Fit model (log-log)
+  model <- lm(log10(ext_chl) ~ log10(chl), data = train)
+  
+  # Predict on left-out cruise
+  test$pred_log <- predict(model, newdata = test)
+  
+  # Bias correction
+  sigma2 <- summary(model)$sigma^2
+  
+  test$pred_ext_chl_2 <- exp((test$pred_log) + (sigma2 / 2))
+  
+  # Store cruise label
+  test$fold <- c
+  
+  # Combine results
+  cv_cruise_results <- bind_rows(cv_cruise_results, test)
+}
+
+
+#Overall performance
+rmse(cv_cruise_results$ext_chl, cv_cruise_results$pred_ext_chl_2)
+
+#Performance by cruise
+cv_cruise_results %>%
+  group_by(fold) %>%
+  summarise(
+    RMSE = rmse(ext_chl, pred_ext_chl_2),
+    MAE  = mae(ext_chl, pred_ext_chl_2),
+    n    = n()
+  )
+
+
+
+
+```
+
+
+
+
++ Apply to long term c3 data series
 
 
 
@@ -3103,12 +4386,13 @@ c3_dunga_files_clean <- c3_dunga_files  %>%
   "mdy HMS",
   "mdy HM"
 ))) %>%
-  mutate(year= year(date_time_parsed),
+  mutate(date = date(date_time_parsed),
+         year= year(date_time_parsed),
          month = month(date_time_parsed),
          mmyy = format(date_time_parsed, "%m-%y")) %>% 
   arrange(date_time) %>% 
-  clean_names() %>% 
-filter(!(chl <= 0 | chl > 500))
+  clean_names() 
+
 
 #check files
 table(c3_dunga_files_clean$source_file)
@@ -3119,6 +4403,7 @@ table(c3_dunga_files_clean$source_file)
 ```
 
 
+The longterm data series are within (1.01 - 200.73) calibration range compared to the c3_chl_data (2.55 - 218.5). From the Dunga Sonde, I filtered out values <1. The values close to zero seemed like non-data.
 
 
 + frequency distribution
@@ -3268,10 +4553,30 @@ labeleddgc3 <- classify_data(refdata = c3_dunga_files_clean,
                          outliers = c3_dg_outlier_detect)
 
 
+##Final cleaning of cleaned dataset
+
+weird_chl <- out_qc_loessdgc3 %>% 
+  filter(chl < 1)
+
+
+
+wierd_dg <- out_qc_loessdgc3 %>% 
+  mutate(
+    bad_sensor = (chl < 1) |
+         (chl < 2 & mmyy == "03-24") |
+         (date_time_parsed >= as.POSIXct("2024-10-16 00:00:00") &
+         date_time_parsed <= as.POSIXct("2024-10-30 23:59:59")))
+
+  
+final_dg <- wierd_dg %>% 
+  filter(!bad_sensor)
+  
+  
+  
 
 #plot clean dataset
 
-out_qc_loessdgc3 %>% 
+final_dg %>% 
   mutate(mmyy_date = my(mmyy),   # converts "01-25" → Jan 2025
   mmyy = factor(mmyy, levels = unique(mmyy[order(mmyy_date)]))       
   ) %>% 
@@ -3302,22 +4607,26 @@ out_qc_loessdgc3 %>%
 
 ```
 
-monthly distribtution plots for clean data
+
+clean monthly distribtution plots for clean data
 
 ```{r}
 
-
-out_qc_loessdgc3 %>% 
-  mutate(month = as_factor(month))%>%
+final_dg %>% 
+  mutate(
+    month = as_factor(month),
+    year = as_factor(year)
+  ) %>%
   arrange(date_time) %>% 
   group_by(month, year) %>%
-  summarise(avg_chl = mean(chl)) %>% 
-  ggplot(aes(x = month, y = avg_chl)) +
-  geom_point(color = "steelblue", size=4) +
-  facet_wrap(~ year, scales = "free_y") +
+  summarise(avg_chl = mean(chl), .groups = "drop") %>% 
+  ggplot(aes(x = month, y = avg_chl, colour = year, group = year)) +
+  geom_line(size = 1) +
+  geom_point(size = 3) +
   labs(
     x = "Months",
-    y = "Chlorophyll (µg/L)"
+    y = "Chlorophyll (µg/L)",
+    color = "Year"
   ) +
  
 theme_bw() +
@@ -3337,18 +4646,15 @@ theme_bw() +
   guides(color = guide_legend(override.aes = list(size = 8)))
   
 
-
 ggsave(file="plots/c3/DG_plots/av_rawc3_chl.png", width = 16, height = 10, dpi = 300)
 
 
 
-# create output folder (if it doesn’t exist)
-#dir.create("monthly_chl_plots", showWarnings = FALSE)
+#individual plots every day
 
-# get unique mmyy values (ordered chronologically if needed)
+# get unique mmyy values (ordered chronologically)
 
-
-mmyy_levels <- out_qc_loessdgc3 %>%
+mmyy_levels <- final_dg %>%
   mutate(mmyy_date = lubridate::my(mmyy)) %>%
   arrange(mmyy_date) %>%
   pull(mmyy) %>%
@@ -3359,7 +4665,8 @@ mmyy_levels <- out_qc_loessdgc3 %>%
 # loop
 for (m in mmyy_levels) {
   
-  df_sub <- out_qc_loessdgc3 %>%
+  df_sub <- final_dg %>%
+    filter(!(mmyy == "03-24" & chl < 13.43)) %>% 
     filter(mmyy == m) %>%
     arrange(date_time)
   
@@ -3382,7 +4689,7 @@ for (m in mmyy_levels) {
     theme_bw() +
     theme(
       text = element_text(size = 10, colour = "black"),
-      axis.text.x = element_text(angle = 45, hjust = 1)
+      axis.text.x = element_text(size=3, angle = 45, hjust = 1)
     )
   
   ggsave(
@@ -3395,329 +4702,225 @@ for (m in mmyy_levels) {
 }
 
 
+ #############################################
+
+#every week plots
 
 
-
-
-```
-
-
-
-#   Testing the model on longterm c3 series
-
-+ bias correction on the c3 data we used for calibration.
-
-    + Log transformation compresses large values
-    + When you back-transform, you don’t fully recover the spread
-    + So predictions are biased low
-    + The correction inflates them slightly to compensate so that the high values are not under   estimated
+# loop
+for (m in mmyy_levels) {
+  
+  df_sub <- final_dg %>%
+    filter(mmyy == m) %>%
+    arrange(date_time)
+  
+  
+  p <- ggplot() +
+   
+    #geom_point(size = 0.5, alpha = 0.5, color="red") +
+    #geom_point(aes(y=df_sub_2$chl), size = 0.1, alpha = 0.5, color="purple") +
     
-
-+  correct the bias to the series using Duan's smearing estimator or sigma
-    It is more robust and doesn't assume perfect normal residues
     
-
-```{r}
-
-sigma22 <- summary(model_log)$sigma^2
-
-c3_calib_data_clean$pred_ext_chl <- 10^(c3_calib_data_clean$pred_log) * exp(sigma2 / 2) #corrects log bias
-
-
-# Plot observed vs predicted
-ggplot(c3_calib_data_clean, aes(ext_chl, pred_ext_chl)) +
-  geom_point() +
-  geom_abline(slope = 1, intercept = 0, color = "red")
-
-
-# Calculate metrics
-
-library(Metrics)
-
-rmse(c3_calib_data_clean$ext_chl, c3_calib_data_clean$pred_ext_chl)
-mae(c3_calib_data_clean$ext_chl, c3_calib_data_clean$pred_ext_chl)
-
-
-
-
-
-```
-
-
-
-# Model validation
-
-+   Cross-validation
-
-```{r}
-
-#library(boot)
-
-#cv.glm(c3_calib_data_clean, model_log, K = 10)$delta
-
-
-library(dplyr)
-
-set.seed(123)
-
-K <- 10
-folds <- sample(rep(1:K, length.out = nrow(c3_calib_data_clean)))
-
-cv_results <- data.frame()
-
-for (k in 1:K) {
+    
+  geom_point(data = df_sub, aes(x = date_time_parsed, y = chl), color = "red", size=0.1) +
+    
+    
+    labs(
+      title = paste("Chlorophyll Time Series -", m),
+      x = "Date-Time",
+      y = "Chlorophyll (µg/L)"
+    ) +
+    theme_bw() +
+    theme(
+      text = element_text(size = 10, colour = "black"),
+      axis.text.x = element_text(angle = 45, hjust = 1)) +
+    scale_x_datetime(
+    date_breaks = "3 days",   # Change to "2 weeks" or "10 days" as needed
+    date_labels = "%d-%b-%y")      # Formats as "Jan 2023"
   
-  train <- c3_calib_data_clean[folds != k, ]
-  test  <- c3_calib_data_clean[folds == k, ]
-  
-  model <- lm(log10(ext_chl) ~ log10(chl), data = train)
-  
-  # Predict
-  test$pred_log <- predict(model, newdata = test)
-  
-  # Bias correction
-  sigma2 <- summary(model)$sigma^2
-  test$pred_ext_chl <- 10^(test$pred_log) * exp(sigma2 / 2)
-  
-  # Store results
-  cv_results <- rbind(cv_results, test)
+
+  ggsave(
+    filename = paste0("DG_plots/weekly_chl_plots/chl_timeseries_", m, ".png"),
+    plot = p,
+    width = 8,
+    height = 4,
+    dpi = 300
+  )
 }
 
-# Final RMSE
-rmse(cv_results$ext_chl, cv_results$pred_ext_chl)
+
+
+```
+
+
+
++   visualize predicted vs observed values
+
+
+```{r}
+
+#check range before applying
+
+range(c3_model_data$chl)
+range(wierd_dg$chl)
+
+#log transform chl
+
+wierd_dg$log_chl <- log10(wierd_dg$chl)
+
+
+# 1. Extract Fixed Effects and Sigma
+coeffs <- fixef(model_mixed)
+b0 <- coeffs["(Intercept)"]
+b1 <- coeffs["log_chl"]
+sig <- sigma(model_mixed)
+
+# 2. Calculate Bias Correction Factor (BCF)
+bcf_mm <- exp((sig^2 / 2) * (log(10)^2))
+
+# 3. Predict for your dataset
+wierd_dg <- wierd_dg %>%
+  mutate(
+    log_pred_mm   = b0 + (b1 * log_chl),  #predict data using the model
+    pred_ext_mm = (10^log_pred_mm) * bcf_mm   #back transform
+  )
+
+
+write_csv(wierd_dg, file = "Corrected_Dunga_c3_chlorophyll.csv")
+
+
+
+
+
+#visualise the predicted chl with the c3 chl
+
+c3_long <- out_qc_loessdgc3 %>%
+  mutate(
+    month = as.numeric(month),
+    year  = as.factor(year)
+  ) %>%
+  group_by(year, month) %>%
+  summarise(
+    avg_pred = mean(pred_ext_chl, na.rm = TRUE),
+    avg_obs  = mean(chl, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  pivot_longer(
+    cols = c(avg_pred, avg_obs),
+    names_to = "type",
+    values_to = "chl"
+  ) %>%
+  mutate(
+    type = dplyr::recode(type,
+                  avg_pred = "Predicted",
+                  avg_obs  = "c3 chl"),
+    month = factor(month, levels = 1:12, labels = month.abb)
+  )
+
+# Plotting Raw vs Predicted by Year
+
+ggplot(c3_long, aes(x = month, y = chl, color = type, group = type)) +
+  geom_line(linewidth = 1.5) +
+  geom_point(size = 3) +
+  facet_wrap(~ year, scales = "free_y") +
+  scale_color_manual(values = c("C3_chlorophyll_RFU" = "black", "Predicted_chl_ug/l" = "red")) +
+  labs(
+    x = "Month",
+    y = "Chlorophyll",
+    color = ""
+  ) +
+  theme_bw(base_size = 18) +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_line(colour = "gray90", linetype = "dotted"),
+    legend.position = "top",
+    strip.text = element_text(size = 16, face = "bold")
+  )
+
+ggsave(file="plots/c3/DG_plots/av_predictedvsobs_chl.png", width = 16, height = 10, dpi = 300)
+
+
+
+
+###########################################################
+
 
 
 
 ```
 
 
-+ Apply to long term data series
+
+
++ Apply model to experiment data
 
 ```{r}
 
 
-#log transform chl
-out_qc_loessdgc3$log_chl <- log10(out_qc_loessdgc3$chl)
+#c3_spiking_expt24
+
+  #log transform chl
+c3_spiking_expt24$log_chl <- log10(c3_spiking_expt24$chl)
 
 #predict new chl log transformed
-out_qc_loessdgc3$pred_log <- predict(model_log, newdata = out_qc_loessdgc3)
+c3_spiking_expt24$pred_log <- predict(model_log, newdata = c3_spiking_expt24)
 
 #add the log bias correction term: converting predictions from log space back to real chlorophyll units, with bias correction
 
 sigma_log <- summary(model_log)$sigma^2
 
-out_qc_loessdgc3$pred_ext_chl <- 10^(out_qc_loessdgc3$pred_log) * exp(sigma_log / 2)
-
-
-par(mfrow = c(1, 2))
-plot(out_qc_loessdgc3$pred_log, out_qc_loessdgc3$chl, main = "No correction" )
-plot(out_qc_loessdgc3$pred_ext_chl, out_qc_loessdgc3$chl, main = "With correction" )
+c3_spiking_expt24$pred_ext_chl <- 10^(c3_spiking_expt24$pred_log) * exp(sigma_log / 2)
 
 
 
+#visualize
 
+plot(c3_spiking_expt24$chl, c3_spiking_expt24$pred_ext_chl)
 
+plot_data <- c3_spiking_expt24 %>%
+  pivot_longer(
+    cols = c(pred_ext_chl, ext_chl),
+    names_to = "type",
+    values_to = "chl_value"
+  ) %>%
+  mutate(
+    type = dplyr::recode(type,
+                         pred_ext_chl = "Predicted",
+                         ext_chl  = "Lab_Extracted")
+  ) %>% 
+  mutate(
+    expt = ifelse(
+      code %in% paste0("HG", 1:6),
+      "Very-green-expt",
+      "light-green-expt"
+    )
+  ) %>% 
+  mutate(expt = as_factor(expt))
 
+# Plotting Raw vs Predicted by Year
 
-#check range before applying
-
-range(c3_calib_data_clean$chl)
-range(out_qc_loessdgc3$chl)
-
-
-
-```
-Notes: 
-10^(pred_log) → gives you the median prediction
-exp(sigma²/2) → adjusts to the mean (true expected value). Exponentiate the predictions to return to the original scale
-
-The longterm data series are within (0.13 - 200.73) calibration range compared to the c3_calibration data (2.55 - 218.5)
-
-
-# MSPE 
-
-  + this is the MSPE (Mean Square Prediction Error). average of the squared differences between observed and predicted values and we use it to validate the model
-  
-  + Lower is better
-
-```{r}
-
-ggplot() +
-  geom_point(data = c3_calib_data_clean, aes(chl, ext_chl), alpha = 0.5) +
-  geom_line(data = out_qc_loessdgc3, aes(chl, pred_ext_chl), color = "red")
-
-
-#mspe = (yi - yhat)^2, na.rm = TRUE)
-
-#Work on this function later
-
-#calculate_rmspe <- function(actual, log_pred) {
- # pred <- exp(log_pred)
- # val <- sqrt(mean(((yi - yhat)^2, na.rm = TRUE))
- # return(val)
-#}
-#my_rmspe <- calculate_rmspe(c3_calib_data_clean$ext_chl, c3_calib_data_clean$pred_ext_chl)
-
-
-
-yi = cv_results$ext_chl
-
-yhat = cv_results$pred_ext_chl
-
-mspe_model = mean((yi - yhat)^2, na.rm = TRUE)
-
-
-# Root Mean Squared Prediction Error (RMSPE): Back to original units
-
-rmspe_model = sqrt(mspe_model)
-
-
-Percentage_error <- mean(abs((cv_results$ext_chl - cv_results$pred_ext_chl) / 
-          cv_results$ext_chl), na.rm = TRUE) * 100
-
-```
-MSPE for the model is high `r mspe_model` but it is sensitive to outliers. Even if we cleaned the data, a few points are still controlling the fit. RMSPE is less sensitive to outliers and is the square root of mspe. So the RMSPE is `r rmspe_model`ug/l means that the predicted ext_chl by the c3 is off by rmspe_model ug/l. 
-
-The general percentage error (How big is my prediction error compared to the true value) is `r Percentage_error`. 
-
-**The calibration model exhibited moderate predictive performance (RMSE = 11 µg L⁻¹), with substantial uncertainty at low chlorophyll concentrations and improved accuracy at higher concentrations.**
-
-
-
-+ Let's try to break down the chl ranges
-
-
-```{r}
-
-median_chl <- median(cv_results$chl, na.rm = TRUE)
-
-cv_results <- cv_results %>%
-  mutate(chl_group = ifelse(chl <= median_chl, "Low", "High"))
-
-
-# compare rmse per group
-
-library(dplyr)
-library(Metrics)
-
-cv_results %>%
-  group_by(chl_group) %>%
-  summarise(
-    RMSE = rmse(ext_chl, pred_ext_chl),
-    MAE  = mae(ext_chl, pred_ext_chl),
-    n    = n()
+ggplot(plot_data, aes(x = code, y = chl_value, color = type, group = type)) +
+  geom_line(linewidth = 1.5) +
+  geom_point(size = 3) +
+  facet_wrap(~expt) +
+  #scale_color_manual(values = c("Lab_Extracted" = "black", "Predicted" = "red")) +
+  labs(
+    x = "treatments",
+    y = "Chlorophyll (µg/L)",
+    color = ""
+  ) +
+  theme_bw(base_size = 18) +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    legend.position = "top",
+    strip.text = element_text(size = 16, face = "bold")
   )
 
+ggsave(file="plots/c3/expts24_plot.png", width = 16, height = 10, dpi = 300)
 
-```
-
-
-At low chl (less than median chl), `r median_chl`, the RMSE is 6.1 while at higher chl, the RMSE increases to 15.
-
-
-Leave one cruise out cross validation (LOOCV)
-
-```{r}
-
-cruises <- unique(c3_calib_data_clean$source_file)
-
-#Run LOOCV by cruise files
-
-library(dplyr)
-
-
-cv_date_results <- data.frame()
-
-for (d in cruises) {
-  
-  train <- c3_calib_data_clean %>% filter(cruises != d)
-  test  <- c3_calib_data_clean %>% filter(cruises == d)
-  
-  
-  test$fold <- d
-  
-  cv_date_results <- bind_rows(cv_cruise_results, test)
-}
-
-
-#Overall performance
-rmse(cv_date_results$ext_chl, cv_date_results$pred_ext_chl)
-
-
-#Perfomance by cruise dates     
-
-cv_cruise_results %>%
-  group_by(fold) %>%
-  summarise(
-    RMSE = rmse(ext_chl, pred_ext_chl),
-    n = n()
-  )
-
-
-#Combine both ideas
-
-cv_date_results %>%
-  mutate(chl_group = ifelse(chl <= median(chl, na.rm = TRUE), "Low", "High")) %>%
-  group_by(chl_group) %>%
-  summarise(RMSE = rmse(ext_chl, pred_ext_chl))
-
-```
-
-
-```{r}
-
-
-library(dplyr)
-
-sites <- unique(c3_calib_data$code)
-
-cv_date_results <- data.frame()
-
-for (d in sites) {
-  
-  train <- c3_calib_data_clean %>% filter(sites != d)
-  test  <- c3_calib_data_clean %>% filter(sites == d)
-  
-  model <- lm(log10(ext_chl) ~ log10(chl), data = train)
-  
-  # Predict
-  test$pred_log <- predict(model, newdata = test)
-  
-  # Bias correction
-  sigma2 <- summary(model)$sigma^2
-  test$pred_ext_chl <- 10^(test$pred_log) * exp(sigma2 / 2)
-  
-  test$fold <- d
-  
-  cv_date_results <- bind_rows(cv_date_results, test)
-}
-
-#General performance
-
-rmse(cv_date_results$ext_chl, cv_date_results$pred_ext_chl)
-
-#performace by date
-
-cv_date_results %>%
-  group_by(fold) %>%
-  summarise(
-    RMSE = rmse(ext_chl, pred_ext_chl),
-    n = n()
-  )
-
-
-#Combine both ideas
-
-cv_date_results %>%
-  mutate(chl_group = ifelse(chl <= median(chl, na.rm = TRUE), "Low", "High")) %>%
-  group_by(chl_group) %>%
-  summarise(RMSE = rmse(ext_chl, pred_ext_chl))
-
-
+ 
 
 
 ```
-
-
-
 
