@@ -86,6 +86,8 @@ read_and_combine_csv <- function(file_path) {
 
 ```
 
+# Loading Lake data fro calibration
+
 +   2022
 
 +     MFANGANO chl sensor
@@ -239,6 +241,7 @@ ysiF_2022_c <- ysiF_2022_b %>%
 
 ```{r}
 #DUNGA sonde
+
 ysi_2022DG <-ysi_cruz22_files %>% 
   filter(file_name == "L_CMPDU") %>% 
    rename(chl_rfu_DG = chl_7,
@@ -667,10 +670,11 @@ ggsave(file="plots/2024_plots/ysi2024_site_freq_distribution.png",width = 16, he
 +  try outlier filters for July 2024 data
 
 +   manual removal based on error readings
+
 ```{r}
 
 ysicrjul_24_filter <- ysicrjul_24 %>% 
-  filter(!(chl_rfu <= 0 | chl_rfu > 150)) 
+  filter(!(chl_rfu <= 0)) 
 
 ysicrjul_24_filter %>% 
 mutate(code = as.factor(code)) %>% 
@@ -857,12 +861,12 @@ chl_dat_24$DF <- df_func(chl_dat_24$total_vol_in_cuvette, chl_dat_24$sample_vol)
 
 ###Make a function to convert florescence units to chlorophyll concentration
 convert_fluorescence_to_chlorophyll <- function(fluoresence_units, dilution_factor, extract_volume, volume_filtered) {
- ext_chl <- 0.0003 * fluorescence_units * dilution_factor * extract_volume / volume_filtered
+ ext_chl <- 0.0003 * fluoresence_units * dilution_factor * extract_volume / volume_filtered
  return(ext_chl)
 }
 
 
-fluorescence_units <- chl_dat_24$fu_after_dilution
+fluoresence_units <- chl_dat_24$fu_after_dilution
 dilution_factor  <- chl_dat_24$DF
 extract_volume <- chl_dat_24$vol_extract
 volume_filtered <- chl_dat_24$vol_filtered/1000
@@ -971,10 +975,10 @@ MF_EXPER_b <- MF_EXPER %>%
            (date_time >= as.POSIXct("2022-07-10 13:11:00") & date_time <= as.POSIXct("2022-07-10 14:21:00")) ~ "0.5X",
            (date_time >= as.POSIXct("2022-07-10 14:31:00") & date_time <= as.POSIXct("2022-07-10 15:21:00")) ~ "0.25X",
            (date_time >= as.POSIXct("2022-07-10 15:31:00") & date_time <= as.POSIXct("2022-07-10 16:21:00")) ~ "0.125X",
-           (date_time >= as.POSIXct("2022-07-10 16:31:00") & date_time <= as.POSIXct("2022-07-10 21:01:00")) ~ "0.062X",
-           (date_time >= as.POSIXct("2022-07-10 21:11:00") & date_time <= as.POSIXct("2022-07-10 22:41:00")) ~ "0.031X",
-           (date_time >= as.POSIXct("2022-07-10 22:51:00") & date_time <= as.POSIXct("2022-07-11 06:01:00")) ~ "0.015X",
-           (date_time >= as.POSIXct("2022-07-11 06:11:00") & date_time <= as.POSIXct("2022-07-11 12:01:00")) ~ "0.007X",
+           (date_time >= as.POSIXct("2022-07-10 16:31:00") & date_time <= as.POSIXct("2022-07-10 17:21:00")) ~ "0.062X",
+           (date_time >= as.POSIXct("2022-07-10 17:31:00") & date_time <= as.POSIXct("2022-07-10 18:21:00")) ~ "0.031X",
+           (date_time >= as.POSIXct("2022-07-10 18:31:00") & date_time <= as.POSIXct("2022-07-11 19:21:00")) ~ "0.015X",
+           (date_time >= as.POSIXct("2022-07-11 19:31:00") & date_time <= as.POSIXct("2022-07-11 20:21:00")) ~ "0.007X",
            TRUE ~ NA_character_
          )) %>% 
   filter(!is.na(code)) %>% 
@@ -1102,14 +1106,14 @@ DU_EXPER <- ysi_expt_files %>%
 DU_EXPER_b <- DU_EXPER %>%
   mutate(date_time = as.POSIXct(date_time, format = "%m/%d/%Y %H:%M"),
          code = case_when(
-           (date_time >= as.POSIXct("2022-07-08 19:10:00") & date_time <= as.POSIXct("2022-07-10 13:00:00")) ~ "X",
+           (date_time >= as.POSIXct("2022-07-10 12:00:00") & date_time <= as.POSIXct("2022-07-10 13:00:00")) ~ "X",
            (date_time >= as.POSIXct("2022-07-10 13:10:00") & date_time <= as.POSIXct("2022-07-10 14:20:00")) ~ "0.5X",
            (date_time >= as.POSIXct("2022-07-10 14:30:00") & date_time <= as.POSIXct("2022-07-10 15:20:00")) ~ "0.25X",
            (date_time >= as.POSIXct("2022-07-10 15:30:00") & date_time <= as.POSIXct("2022-07-10 16:20:00")) ~ "0.125X",
-           (date_time >= as.POSIXct("2022-07-10 16:30:00") & date_time <= as.POSIXct("2022-07-10 21:00:00")) ~ "0.062X",
-           (date_time >= as.POSIXct("2022-07-10 21:10:00") & date_time <= as.POSIXct("2022-07-10 22:40:00")) ~ "0.031X",
-           (date_time >= as.POSIXct("2022-07-10 22:50:00") & date_time <= as.POSIXct("2022-07-11 06:00:00")) ~ "0.015X",
-           (date_time >= as.POSIXct("2022-07-11 06:10:00") & date_time <= as.POSIXct("2022-07-11 11:50:00")) ~ "0.007X",
+           (date_time >= as.POSIXct("2022-07-10 16:30:00") & date_time <= as.POSIXct("2022-07-10 17:21:00")) ~ "0.062X",
+           (date_time >= as.POSIXct("2022-07-10 17:31:00") & date_time <= as.POSIXct("2022-07-10 18:21:00")) ~ "0.031X",
+           (date_time >= as.POSIXct("2022-07-10 18:31:00") & date_time <= as.POSIXct("2022-07-11 19:21:00")) ~ "0.015X",
+           (date_time >= as.POSIXct("2022-07-11 19:30:00") & date_time <= as.POSIXct("2022-07-11 20:40:00")) ~ "0.007X",
            TRUE ~ NA_character_
          )) %>% 
   rename(chl_rfu_DG = chl_7,
@@ -1122,7 +1126,7 @@ DU_EXPER_b <- DU_EXPER %>%
 ```
 
 
-+ remove outliers from the DG sonde 
++ remove outliers from the DG sonde and make final 2022 expt data
 
 ```{r}
 
@@ -1174,7 +1178,7 @@ out_qc_labeled22DU <- classify_data(refdata = DU_EXPER_b,
 
 #Visualize labelled quality controlled dataset
 
-ggenvironmentalspace(DG22_expt_outlier_detect, 
+ggenvironmentalspace(out_qc_labeled22DU, 
                      type = '1D',
                      ggxangle = 45, 
                      scalecolor = 'viridis',
@@ -1197,7 +1201,7 @@ labeled22DG <- classify_data(refdata = DU_EXPER_b,
 
 #plot clean dataset
 
-out_qc_labeled22DU %>% 
+out_qc_loess22DG %>% 
 mutate(code = as.factor(code)) %>% 
 ggplot(aes(x = chl_rfu_DG)) +
   geom_histogram(bins=5,binwidth = 1, boundary = 0, fill = "steelblue", color = "black") +
@@ -1216,7 +1220,7 @@ ggsave(file="plots/2022_plots/expts/DG_expt_loessfilter_general_freq_distributio
 ##################################################333
 #Final dataset
 
-DU_EXPER_c <- out_qc_labeled22DU %>% 
+DU_EXPER_c <- out_qc_loess22DG %>% 
   group_by(code) %>%
   slice_max(order_by = chl_rfu_DG, n = 3) %>%
   summarise(
@@ -1240,19 +1244,28 @@ expt22_ysi <- full_join(DU_EXPER_c, MF_EXPER_c)
 
 
 
-
 +   extracted chl for the dilution expt
 
 ```{r}
 
 ext_chl_expt22 <- read_csv("sonde_expt_22.csv") 
 
+
+
+# Apply the function to the defined columns to get DF
+
 ext_chl_expt22$DF <- df_func(ext_chl_expt22$total_vol, ext_chl_expt22$sample_vol)
 
-fluorescence_units <- ext_chl_expt22$FU
+
+# Apply the function to the defined columns to get the FU conversion to chl ug/l
+
 dilution_factor  <- ext_chl_expt22$DF
+
 extract_volume <- ext_chl_expt22$vol_ext_ml
+
 volume_filtered <- ext_chl_expt22$vol_fil_ml/1000
+  
+fluoresence_units <- ext_chl_expt22$FU
 
 ext_chl_expt22$ext_chl <- convert_fluorescence_to_chlorophyll(fluoresence_units, dilution_factor, extract_volume, volume_filtered)
 
@@ -1334,11 +1347,14 @@ ggplot(wide_data, aes(x = DG, y = MF)) +
 
   
 
+ggsave(filename = "plots/DGvsMFsensor.png", height = 10, width = 14, dpi = 300)
+
 ```
-The DG and MF chl sensors were reading close in agreement.
+
+The DG and MF chl sensors were 99% in agreement.
 
 
-+ Check the extracted and ysi data (lake and experiment)
++ Check the extracted and ysi data (lake and experiment) ??????????
 
 
 ```{r}
@@ -1387,14 +1403,9 @@ ggplot(aes(ext_chl, chl_ysi, color = file_name)) +
 
 
 
-
-
-
-
-
 + 2024 spiking MF sonde sensor and c3 experiments with ext_chl
 
-This file was generated from a previous RMD file.
+This file was generated from another RMD file.
 
 ```{r}
 
@@ -1428,11 +1439,9 @@ MF_spiking_julexpt_24 <- MF_EXPERjul_24
 
 
 ysi_calib_data <- bind_rows(ysi_field_data, ysi_dilution_expt) %>% 
-  filter(if_all(c(ext_chl, chl_ysi), ~ !is.na(.)))  %>% 
   bind_rows(MF_spiking_julexpt_24)
   
   
-
 
 
 ```
@@ -1445,57 +1454,146 @@ ysi_calib_data <- bind_rows(ysi_field_data, ysi_dilution_expt) %>%
 
 +   check slopes across years
 
++ MF sensor
+
 ```{r}
 
-
 #Field only
-ysi_calib_data_field <- ysi_calib_data  %>% 
-  filter(data_type %in% "field") 
-
-
-ysi_calib_data %>% 
+MF_calib <- ysi_calib_data  %>% 
   filter(data_type %in% "field") %>% 
+  filter(file_name %in% c("cruise-2022_MFysi", "cruise-ysidata-2023_naphtali", "CR24JUL_ysi")) %>%
+  filter(!chl_ysi > 100, !is.na(ext_chl))
+
+
+
+MF_calib %>% 
   arrange(file_name, chl_ysi) %>% 
   ggplot(aes(x = chl_ysi, y = ext_chl)) +
   geom_point(color = "steelblue") +
-  geom_line(aes(group = 1)) +
-  facet_wrap(~ file_name, scales= "free_y") 
+  facet_wrap(~ file_name, scales= "free_y") +
+  theme_bw(base_size = 14) +
+  theme(
+    panel.background = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_line(colour = "gray90", linetype = "dotted", linewidth = 0.5),
+    legend.position = "right",
+      legend.text = element_text(size = 12),   # 👈 increases legend labels
+  legend.title = element_text(size = 14),
+  
+    axis.text = element_text(size = 16, margin = margin(t = 15)),
+    axis.title = element_text(size = 14),
+    axis.text.x = element_text(vjust = 1, hjust = 1),
+    #plot.title = element_text(hjust = 0.5, size = 30, face = "bold"),
+  ) 
 
-ggsave(filename = "plots/CALIB/rship_ysi~ext_field.png", width = 10, height = 14, dpi = 300)
+  
+ggsave(filename = "plots/CALIB_MF_sensor/rship_ext~ysi_field.png", width = 14, height = 10, dpi = 300)
+
+```
+
+Run lm model for MF sensor
+
+```{r}
 
 
-##log transformed
+#MF_calib <- ysi_calib_data %>% 
+  #filter(if_all(c(ext_chl, chl_ysi), ~ !is.na(.)))
 
-ysi_calib_data %>% 
-  #filter(data_type %in% "experiment") %>% 
-  ggplot(aes(log10(chl_ysi), log10(ext_chl), color = file_name)) +
+model_MF <- lm(ext_chl ~ chl_ysi, data = MF_calib)
+summary(model_MF)
+
+par(mfrow = c(2,2))
+plot(model_MF)
+
+
+
+```
+
+
+Transformations
+
++ Log data 
+```{r}
+
+
+
+MF_model_data <- MF_calib %>%
+    mutate(
+    log_ext_chl = log10(ext_chl),
+    log_chl = log10(chl_ysi),
+    log_bga = log10(bga_ysi),
+    log_spcond = log10(sp_cond_ysi)
+  ) %>%
+  mutate(
+    log_chl_c = scale(log_chl, scale = FALSE),
+    log_bga_c = scale(log_bga,  scale = FALSE),
+    log_spcond_c = scale(log_spcond, scale = FALSE),
+    temp_c    = scale(temp_ysi,    scale = FALSE)
+  )
+
+
+```
+
+
+
+log transformed
+```{r}
+
+model_MF_log <- lm(log_ext_chl ~ log_chl, data = MF_model_data)
+
+summary(model_MF_log)
+
+par(mfrow = c(2,2))
+plot(model_MF_log)
+
+
+
+
+MF_model_data %>% 
+  ggplot(aes(log_chl, log_ext_chl, color = file_name)) +
   geom_point() +
   geom_smooth(method = "lm", se = FALSE, color = "red") +
-  facet_wrap(~ file_name, scales = "free_y")
-
-ggsave(filename = "plots/CALIB/log_rship_ysi~ext_field.png", width = 10, height = 14, dpi = 300)
-
-
-
-###lm for different field data
-
-###let's try a lm with the DGsonde included
-
-ysi_calib_data_field_withdg  <- ysi_calib_data_field %>% 
-arrange(file_name, chl_ysi) 
-
-calib_data_field_withdg %>% 
-ggplot(aes(log10(chl_ysi), log10(ext_chl), colour = file_name)) +
-  geom_point() +
-  geom_smooth(method = "lm", se = FALSE) +
-  theme(axis.text = element_text(size=14))+
-stat_regline_equation(
+  facet_wrap(~ file_name, scales = "free_y") +
+  theme_bw(base_size = 14) +
+  theme(
+    panel.background = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_line(colour = "gray90", linetype = "dotted", linewidth = 0.5),
+    legend.position = "right",
+      legend.text = element_text(size = 12),   # 👈 increases legend labels
+  legend.title = element_text(size = 14),
+  
+    axis.text = element_text(size = 16, margin = margin(t = 15)),
+    axis.title = element_text(size = 14),
+    axis.text.x = element_text(vjust = 1, hjust = 1),
+    #plot.title = element_text(hjust = 0.5, size = 30, face = "bold"),
+  ) +
+  stat_regline_equation(
     aes(label =  paste(after_stat(eq.label), ..rr.label.., 
                        sep = "~~~~")), show.legend = FALSE)
 
 
-ggsave(filename = "plots/CALIB/log_rship_ysi~ext_field_withDGysi_facet.png", width = 10, height = 10, dpi = 300)
+ggsave(filename = "plots/CALIB_MF_sensor/log_ext~ysi.png", width = 14, height = 10, dpi = 300)
 
+
+
+
+```
+
+
+
+
++   square root square root
+
+```{r}
+
+
+model_mf_sq <- lm(sqrt(ext_chl) ~ sqrt(chl_ysi), data = MF_calib)
+
+summary(model_mf_sq)
+
+par(mfrow = c(2,2))
+plot(model_mf_sq)
 
 
 
@@ -1503,27 +1601,15 @@ ggsave(filename = "plots/CALIB/log_rship_ysi~ext_field_withDGysi_facet.png", wid
 
 ```
 
+The sqrt model does not improve the model and points still show heteroscedasticity.
+
 + lets try models with interaction
 
 ```{r}
 
-###model with DG with interaction
 
-model_1 <- lm(
-  log10(ext_chl + 1) ~log10(chl_ysi + 1)  * file_name,
-  data = ysi_calib_data_field_withdg
-)
-
-summary(model_1)
-
-
-
-###model with no DG with interaction
-
-model_1 <- lm(
-  log10(ext_chl + 1) ~log10(chl_ysi + 1)  * file_name,
-  data = calib_data_field_nodg
-)
+model_1 <- lm(log_ext_chl ~ log_chl  * file_name,
+  data = MF_model_data)
 
 
 summary(model_1)
@@ -1561,7 +1647,290 @@ summary(model_1)
 ```
 
 
-+ Determine linear transformations for different ysi sensors
+
+
++ Mixed effect model
+
+```{r}
+
+MF_model_data$file_name <- relevel(
+  factor(MF_model_data$file_name), 
+  ref = "cruise-ysidata-2023_naphtali" 
+)
+
+
+#using uncentered log data
+
+
+# 1. Run the Fixed Effects Model (lm)
+# This treats the 'Standard' vs 'Outlier' as hard categories
+model_fixed_MF <- lm(log_ext_chl ~ log_chl + file_name, data = MF_model_data)
+summary(model_fixed_MF)
+
+# 2. Run the Mixed Effects Model (lmer)
+# This treats each cruise as a random sample from a larger population
+library(lme4)
+model_mixed_MF <- lmer(log_ext_chl ~ log_chl + (1 | file_name), data = MF_model_data)
+summary(model_mixed_MF)
+
+par(mfrow = c(2,2))
+plot(model_mixed_MF)
+
+
+
+```
+
++ Predict values for global (flat average) and lmer model (accounts for cruise as random effect)
+
+```{r}
+
+
+#Global model predicted values
+
+MF_model_data$pred_log_global <- predict(model_MF_log, newdata = MF_model_data)
+
+sigma_log <- summary(model_MF_log)$sigma^2
+
+bcf_log <- exp((sigma_log^2 / 2) * (log(10)^2)) #corrects log bias
+
+MF_model_data$pred_ext_chl_global <- 10^(MF_model_data$pred_log_global) * bcf_log
+
+
+# 1. Extract Fixed Effects and Sigma
+coeffs <- fixef(model_mixed_MF)
+b0 <- coeffs["(Intercept)"]
+b1 <- coeffs["log_chl"]
+sig <- sigma(model_mixed_MF)
+
+
+
+# 2. Calculate Bias Correction Factor (BCF)
+bcf_mm <- exp((sig^2 / 2) * (log(10)^2))
+
+# 3. Predict for your dataset
+MF_model_data <- MF_model_data %>%
+  mutate(
+    log_pred_mm   = b0 + (b1 * log_chl),  #predict data using the model
+    pred_ext_mm = (10^log_pred_mm) * bcf_mm   #back transform
+  )
+
+
+```
+
++ Evaluate both global and mixed effects model _ plot both models and compare with observed
+
+```{r}
+
+MF_model_data_long <- MF_model_data %>% 
+  pivot_longer(
+    cols = c(ext_chl, pred_ext_chl_global, pred_ext_mm),
+    names_to = "model",
+               values_to = "chlorophyll") %>%
+mutate(type = ifelse(model == "ext_chl", "Observed", "Predicted"))
+
+
+
+ggplot(
+  MF_model_data,
+  aes(x = ext_chl)
+) +
+  geom_point(aes(y = pred_ext_chl_global, color = "Global model"), size = 2) +
+   geom_point(aes(y = pred_ext_mm, color = "Mixed model"), size = 2) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+  
+
+  labs(
+    x = "Observed Extracted Chlorophyll",
+    y = "Predicted Extracted Chlorophyll",
+    color = "Model"
+  ) +
+  theme_bw(base_size = 10) +
+  theme(
+    panel.background = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_line(colour = "gray90", linetype = "dotted", linewidth = 0.5),
+    legend.position = "right",
+      legend.text = element_text(size = 12),   # 👈 increases legend labels
+  legend.title = element_text(size = 14),
+  
+    axis.text = element_text(size = 16, margin = margin(t = 15)),
+    axis.title = element_text(size = 14),
+    axis.text.x = element_text(vjust = 1, hjust = 1),
+    #plot.title = element_text(hjust = 0.5, size = 30, face = "bold"),
+  ) 
+
+#+  guides(color = guide_legend(override.aes = list(size = 8))) + 
+  
+
+
+ggsave(file="plots/CALIB_MF_sensor/plot_models_predictedvsobs_extchl.png", width = 16, height = 10, dpi = 300)
+
+
+
+
+# Calculate metrics
+
+library(Metrics)
+
+rmse_global <- rmse(MF_model_data$ext_chl, MF_model_data$pred_ext_chl_global) #residual mean of squared erros
+mae_global <- mae(MF_model_data$ext_chl, MF_model_data$pred_ext_chl_global) #mean abs error
+
+rmse_mm <- rmse(MF_model_data$ext_chl, MF_model_data$pred_ext_mm) #residual mean of 
+mae_mm <- mae(MF_model_data$ext_chl, MF_model_data$pred_ext_mm) #mean abs error
+
+
+MF_rmse_table <- tibble(rmse_global, mae_global, rmse_mm, mae_mm)
+
+print(MF_rmse_table)
+
+
+
+```
+
+# MF sensor model validation (Mixed effects model)
+
++   Test/Train 
+
+```{r}
+
+#library(boot)
+
+#cv.glm(c3_calib_data_clean, model_log, K = 10)$delta
+
+
+library(dplyr)
+
+set.seed(123)
+
+K <- 10
+folds <- sample(rep(1:K, length.out = nrow(MF_model_data)))
+
+cv_results <- data.frame()
+
+for (k in 1:K) {
+  
+  train <- MF_model_data[folds != k, ]
+  test  <- MF_model_data[folds == k, ]
+  
+# 1. Extract Fixed Effects and Sigma
+
+model <- model_mixed_MF
+coeffs <- fixef(model_mixed_MF)
+b0 <- coeffs["(Intercept)"]
+b1 <- coeffs["log_chl"]
+sig <- sigma(model_mixed_MF)
+
+
+# 2. Calculate Bias Correction Factor (BCF)
+bcf_mm <- exp((sig^2 / 2) * (log(10)^2))
+
+# 3. Predict for your dataset
+test <- test %>%
+  mutate(
+    log_pred_mm   = b0 + (b1 * log_chl),  #predict data using the model
+    pred_ext_mm = (10^log_pred_mm) * bcf_mm   #back transform
+  )
+
+  
+  # Store results
+  cv_results <- rbind(cv_results, test)
+}
+
+# Final RMSE: the square root of the average of squared differences between observed and predicted values
+rmse_mm_MF <- rmse(cv_results$ext_chl, cv_results$pred_ext_mm)
+
+
+
+```
+
+The difference between the observed ext_chl and the predicted using the mixed effects model is `r rmse_mm_MF`.
+
+
+# Loading ysi monthly files
+
++ Apply mixed model to the monthly ysi MF sensor data
+
+
+```{r}
+file_paths_ysi_csv <- dir("ysi_timeseries_files", pattern = "*.csv", full.names = TRUE)
+
+
+ysi_month <- purrr::map_dfr(file_paths_ysi_csv, read_and_combine_csv)  
+
+ysi_month_b <- ysi_month %>% 
+  mutate(
+    # Extract "Dunga" or "Mfangano" from the file_name
+    location = str_extract(file_name, "(?i)DUNGA|MFANGANO")
+  ) %>% 
+  
+  mutate(
+    date_time = as.character(date_time),
+    # Remove invalid characters
+    date_time = iconv(date_time, "UTF-8", "UTF-8", sub = ""), 
+    date_time_parsed = parse_date_time(
+      date_time,
+      orders = c(
+  "Ymd HMS",
+  "Ymd HM",
+  "dmy HMS",
+  "dmy HM",
+  "dmY HMS",
+  "mdy HMS",
+  "mdy HM"
+))) %>% 
+  mutate(year= year(date_time_parsed),
+         month = month(date_time_parsed),
+         mmyy = format(date_time_parsed, "%m-%y"))
+```
+
++ MFANGANO DATA
+
+```{r}
+
+MF_month <- ysi_month_b %>% 
+  filter(location %in% "MFANGANO") %>% 
+  rename(chl_rfu = chl_7,
+         bga_rfu = bga_pc_9)
+
+
+#predict data
+
+
+#transform data
+
+MF_month$log_chl = log10(MF_month$chl_rfu)
+
+
+model <- model_mixed_MF
+coeffs <- fixef(model_mixed_MF)
+b0 <- coeffs["(Intercept)"]
+b1 <- coeffs["log_chl"]
+sig <- sigma(model_mixed_MF)
+
+
+# 2. Calculate Bias Correction Factor (BCF)
+bcf_mm <- exp((sig^2 / 2) * (log(10)^2))
+
+# 3. Predict for your dataset
+MF_month <- MF_month %>%
+  mutate(
+    log_pred_mm   = b0 + (b1 * log_chl),  #predict data using the model
+    pred_ext_mm = (10^log_pred_mm) * bcf_mm   #back transform and add correction term
+  )
+
+
+
+
+
+
+```
+
+
+
+
+
+
+
 
     + DG sonde sensor
 
@@ -1617,117 +1986,7 @@ ggplot(DG_sensor_sub, aes(chl_ysi, ext_chl)) +
 
 ```
 
-+   MF_sensor
-
-```{r}
-
-
-MF_sensor <- ysi_calib_data_field %>% 
-  filter(file_name != "cruise-2022_DGysi")
-
-
-model_mf <- lm(ext_chl ~ chl_ysi, data = MF_sensor)
-summary(model_mf)
-
-par(mfrow = c(2,2))
-plot(model_mf)
-
-plot(model_dg, which = 4)  #Cook's distance
-
-
-#the chl sensor at DG I think was faulty. 
-
-ggplot(MF_sensor, aes(chl_ysi, ext_chl)) +
-  geom_point() +
-  geom_smooth(method = "lm", se = FALSE)
-
-
-ggplot(MF_sensor, aes(log(chl_ysi), log(ext_chl))) +
-  geom_point() +
-  geom_smooth(method = "lm", se = FALSE)
-
-
-#Log model
-
-model_mf_log <- lm(log(ext_chl) ~ log(chl_ysi), data = MF_sensor)
-
-summary(model_mf_log)
-
-par(mfrow = c(2,2))
-plot(model_mf)
-
-
-```
-
-  + Log model for MF sonde
-  
-  
-```{r}
-
-
-model_mf_log <- lm(log10(ext_chl) ~ log10(chl_ysi), data = MF_sensor)
-
-summary(model_mf_log)
-
-par(mfrow = c(2,2))
-plot(model_mf_log)
-
-
-```
-
-  + Log model for MF sonde
-  
-  
-```{r}
-
-
-
-model_mf_log <- lm(log(ext_chl) ~ log(chl_ysi), data = MF_sensor)
-
-
-
-summary(model_mf_log)
-
-par(mfrow = c(2,2))
-plot(model_mf_log)
-
-
-```
-
-+   square root square root
-
-```{r}
-
-model_mf_sq <- lm(sqrt(ext_chl) ~ sqrt(chl_ysi), data = MF_sensor)
-
-summary(model_mf_sq)
-
-par(mfrow = c(2,2))
-plot(model_mf_sq)
-
-```
-
-The points are too few... log and sqrt do not improve the model
-
-
-+ Try a GAM here... 
-
-
-```{r}
-
-```
-
-
-+ DG sonde sensor
-
-```{r}
-
-
-
-
-```
-
-
+ 
 
 
 
@@ -3305,12 +3564,12 @@ c3 log model with no env _ log transformed chl
 c3_model_data <- c3_calib_data_clean %>%
   dplyr::select(!sd) %>% 
   mutate(
-    log_ext_chl = log10(ext_chl),
+    log_ext_chl = log10(ext_chl), #response variable is not scaled
     log_chl     = log10(chl),
     log_pc      = log10(pc)
   ) %>%
   mutate(
-    log_chl_c = scale(log_chl, scale = FALSE),
+    log_chl_c = scale(log_chl, scale = FALSE),  #this means subtract mean, but do NOT divide by sd
     log_pc_c  = scale(log_pc,  scale = FALSE),
     temp_c    = scale(temp,    scale = FALSE)
   )
