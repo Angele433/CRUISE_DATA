@@ -86,7 +86,8 @@ read_and_combine_csv <- function(file_path) {
 
 ```
 
-# Loading Lake data fro calibration
+
+# Loading Lake data for calibration
 
 +   2022
 
@@ -131,7 +132,7 @@ ysiF_2022_b <- ysiF_2022 %>%
 
 
 ysiF_22_outlier_detect <- multidetect(data = ysiF_2022_b, 
-                                var = "chl_rfu_F", 
+                                var = "chl_7", 
                                 var_col = "code",
                                 multiple = TRUE,
                                 methods = c("adjbox", "iqr", "hampel","jknife",
@@ -279,12 +280,58 @@ group_by(code) %>%
 
 ```
 
+
+
++  Other few site comparisons_Both MF and DG sonde sensors
+
+
+```{r}
+
+MFcomp_2022 <- ysi_cruz22_files %>% 
+  filter(file_name == "COMP2_MF") %>% 
+  filter(!is.na(water_body)) %>% 
+  rename(code = water_body) %>% 
+ 
+group_by(code) %>% 
+  summarise(
+    chl_ysi = mean(chl_7, na.rm = TRUE),
+    bga_ysi = mean(bga_pc_9, na.rm= TRUE),
+    temp_ysi = mean(temp, na.rm=TRUE),
+    sp_cond_ysi = mean(sp_cond, na.rm = TRUE)
+    ) %>% 
+  ungroup() %>% 
+  mutate(sample_type = "comp2-2022_MFysi")
+
+
+
+DGcomp_2022 <- ysi_cruz22_files %>% 
+  filter(file_name == "COMP2_DU") %>% 
+    filter(!is.na(water)) %>% 
+             filter(!water%in% "junk") %>% 
+  rename(code = water) %>% 
+ 
+group_by(code) %>% 
+  summarise(
+    chl_ysi = mean(chl_7, na.rm = TRUE),
+    bga_ysi = mean(bga_pc_9, na.rm= TRUE),
+    temp_ysi = mean(temp, na.rm=TRUE),
+    sp_cond_ysi = mean(sp_cond, na.rm = TRUE)
+    ) %>% 
+  ungroup() %>% 
+  mutate(sample_type = "comp2-2022_DGysi")
+
+
+```
+
+
+
+
 +     combine MF and DG sonde data
 
 ```{r}
 ####bind DG and MF sonde cruise
 
-cruise_sondes_2022 <- bind_rows(ysi_2022DG_c, ysiF_2022_c) 
+cruise_sondes_2022 <- bind_rows(ysi_2022DG_c, ysiF_2022_c, DGcomp_2022, MFcomp_2022) 
 
 
 
@@ -835,6 +882,7 @@ cr_jul23_merge_subset <- cr_jul23_merge %>%
 ```
 
 +   2024
+
 ```{r}
 
 
@@ -971,7 +1019,7 @@ MF_EXPER <- ysi_expt_files %>%
 MF_EXPER_b <- MF_EXPER %>%
   mutate(date_time = as.POSIXct(date_time, format = "%m/%d/%Y %H:%M"),
          code = case_when(
-           (date_time >= as.POSIXct("2022-07-10 12:01:00") & date_time <= as.POSIXct("2022-07-10 13:01:00")) ~ "X",
+           (date_time >= as.POSIXct("2022-07-08 18:21:00") & date_time <= as.POSIXct("2022-07-08 19:21:00")) ~ "X",
            (date_time >= as.POSIXct("2022-07-10 13:11:00") & date_time <= as.POSIXct("2022-07-10 14:21:00")) ~ "0.5X",
            (date_time >= as.POSIXct("2022-07-10 14:31:00") & date_time <= as.POSIXct("2022-07-10 15:21:00")) ~ "0.25X",
            (date_time >= as.POSIXct("2022-07-10 15:31:00") & date_time <= as.POSIXct("2022-07-10 16:21:00")) ~ "0.125X",
@@ -1106,7 +1154,7 @@ DU_EXPER <- ysi_expt_files %>%
 DU_EXPER_b <- DU_EXPER %>%
   mutate(date_time = as.POSIXct(date_time, format = "%m/%d/%Y %H:%M"),
          code = case_when(
-           (date_time >= as.POSIXct("2022-07-10 12:00:00") & date_time <= as.POSIXct("2022-07-10 13:00:00")) ~ "X",
+           (date_time >= as.POSIXct("2022-07-08 19:10:00") & date_time <= as.POSIXct("2022-07-08 20:10:00")) ~ "X",
            (date_time >= as.POSIXct("2022-07-10 13:10:00") & date_time <= as.POSIXct("2022-07-10 14:20:00")) ~ "0.5X",
            (date_time >= as.POSIXct("2022-07-10 14:30:00") & date_time <= as.POSIXct("2022-07-10 15:20:00")) ~ "0.25X",
            (date_time >= as.POSIXct("2022-07-10 15:30:00") & date_time <= as.POSIXct("2022-07-10 16:20:00")) ~ "0.125X",
@@ -1271,7 +1319,6 @@ ext_chl_expt22$ext_chl <- convert_fluorescence_to_chlorophyll(fluoresence_units,
 
 
 
-
 ext_chl_expt22_b <- ext_chl_expt22 %>% 
       dplyr::select(code, ext_chl)
 
@@ -1280,7 +1327,6 @@ ext_chl_expt22_b <- ext_chl_expt22 %>%
 
 ysi_dilution_expt <- full_join(expt22_ysi, ext_chl_expt22_b, by = "code") %>% 
   mutate(data_type = "experiment") 
-
 
 
 
@@ -1300,7 +1346,7 @@ dat2 <- ysi_dilution_expt
 
 compar_data <- bind_rows(dat1, dat2) %>% 
   filter(!file_name %in% c("CR24JUL_ysi","cruise-ysidata-2023_naphtali"),
-         !is.na(ext_chl) , !is.na(chl_ysi)) 
+         !is.na(chl_ysi)) 
   
   
 
@@ -1317,10 +1363,54 @@ wide_data <- compar_data %>%
   pivot_wider(
     names_from = sonde,
     values_from = chl_ysi
+  ) %>% 
+  
+ mutate(
+  line_type = case_when(
+    code %in% c("BG10", "BG13", "BG16", "BG18", "CNL1") ~ "cruise",
+    code %in% c("Pier_Lake_side", "Pier_hippo_side", "green_big_tank", 
+                "less green tank", "lined pond")      ~ "lake", 
+    grepl("X", code)                                   ~ "expt",
+    TRUE                                               ~ "other"  
   )
+)
 
 
 #plot
+wide_data %>% 
+  filter(!line_type %in% c("expt"))%>% 
+ggplot(aes(x = DG, y = MF)) +
+  geom_point(size = 3, alpha = 0.7) +
+  
+  # 1:1 line (perfect agreement)
+  geom_abline(slope = 1, intercept = 0,
+              color = "red", linetype = "dashed", linewidth = 1.2) +
+  
+  # regression line (actual relationship)
+  geom_smooth(method = "lm", se = FALSE,
+              color = "blue", linewidth = 1.5) +
+  #facet_wrap(~line_type, scales = "free_y")+
+
+  
+  labs(
+    x = "DG Sonde Chlorophyll",
+    y = "MF Sonde Chlorophyll",
+    title = "DG vs MF Sonde Comparison"
+  ) +
+  
+  
+  theme_bw(base_size = 16) +
+  stat_regline_equation(
+    aes(label =  paste(after_stat(eq.label), ..rr.label.., 
+                       sep = "~~~~")), show.legend = FALSE)
+
+  
+
+ggsave(filename = "plots/DGvsMFsensor_lake.png", height = 10, width = 14, dpi = 300)
+
+
+
+#only lake data
 
 ggplot(wide_data, aes(x = DG, y = MF)) +
   geom_point(size = 3, alpha = 0.7) +
@@ -1332,6 +1422,8 @@ ggplot(wide_data, aes(x = DG, y = MF)) +
   # regression line (actual relationship)
   geom_smooth(method = "lm", se = FALSE,
               color = "blue", linewidth = 1.5) +
+  #facet_wrap(~line_type, scales = "free_y")+
+
   
   labs(
     x = "DG Sonde Chlorophyll",
@@ -1339,7 +1431,7 @@ ggplot(wide_data, aes(x = DG, y = MF)) +
     title = "DG vs MF Sonde Comparison"
   ) +
   
-  coord_equal() +
+  
   theme_bw(base_size = 16) +
   stat_regline_equation(
     aes(label =  paste(after_stat(eq.label), ..rr.label.., 
@@ -1349,16 +1441,25 @@ ggplot(wide_data, aes(x = DG, y = MF)) +
 
 ggsave(filename = "plots/DGvsMFsensor.png", height = 10, width = 14, dpi = 300)
 
+
+
+
+
+
+
+
 ```
 
-The DG and MF chl sensors were 99% in agreement.
+
+
+For 2 datasets (lake and dilution experiment) the intercept and slope are tight. 100% agreement. The cruise dataset shows only ~26% agreement.
+
 
 
 + Check the extracted and ysi data (lake and experiment) ??????????
 
 
 ```{r}
-
 
 
 #plot
@@ -1454,7 +1555,50 @@ ysi_calib_data <- bind_rows(ysi_field_data, ysi_dilution_expt) %>%
 
 +   check slopes across years
 
-+ MF sensor
+
+
+    + DG sonde sensor
+
+```{r}
+
+
+
+DG_sensor <- ysi_calib_data %>% 
+  filter(data_type %in% "field") %>% 
+  filter(file_name  %in%  c("cruise-2022_DGysi", "comp2-2022_DGysi"))
+
+
+model_dg <- lm(ext_chl ~ chl_ysi, data = DG_sensor)
+
+summary(model_dg)
+
+par(mfrow = c(2,2))
+plot(model_dg)
+
+plot(model_dg, which = 4)  #Cook's distance
+
+
+ggplot(DG_sensor, aes(chl_ysi, ext_chl)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE)+
+  stat_regline_equation(
+    aes(label =  paste(after_stat(eq.label), ..rr.label.., 
+                       sep = "~~~~")), show.legend = FALSE)
+
+
+
+
+
+
+
+```
+
+ 
+
+The DG sensor has only 5 ext_chl from the cruise that we can use for calibration. I think at this point, since the MF and DG chl comparisons are at 100%, I am going to use one equation to for both the internal and eternal validations.
+
+
++   MF sensor
 
 ```{r}
 
@@ -1680,6 +1824,21 @@ plot(model_mixed_MF)
 
 ```
 
+Notes:
+1. Fixed Effects Model (lm)
+This model treats every individual file/cruise as its own unique category with a specific effect.
+What it does: It calculates a separate "adjustment" (intercept) for every single file name in your data.
+The Vibe: It assumes these specific cruises are the only ones you care about. It’s great for seeing exactly how much Cruise A differs from Cruise B.
+The Downside: If you have 50 files, you’ll get 50 different coefficients in your summary, which makes the output messy and uses up a lot of "statistical power."
+2. Mixed Effects Model (lmer)
+This model treats file_name as a random grouping factor rather than a fixed category.
+What it does: It assumes your cruises are just a random sample from a larger population of possible cruises. It calculates one overall relationship for log_chl but allows the "starting point" (intercept) to shift up or down for each file.
+The Vibe: It "shrinks" the estimates of weird, outlier cruises toward the average of the group, making the model more stable.
+The Upside: You get a cleaner summary. You’ll see one effect for log_chl and a "Random Effects" section showing how much variation exists between the files
+
+
+
+
 + Predict values for global (flat average) and lmer model (accounts for cruise as random effect)
 
 ```{r}
@@ -1846,12 +2005,335 @@ rmse_mm_MF <- rmse(cv_results$ext_chl, cv_results$pred_ext_mm)
 The difference between the observed ext_chl and the predicted using the mixed effects model is `r rmse_mm_MF`.
 
 
-# Loading ysi monthly files
 
-+ Apply mixed model to the monthly ysi MF sensor data
++ Both sondes combined
+
 
 
 ```{r}
+
+
+#Field only
+ysi_sensor_all <- ysi_calib_data  %>% 
+  filter(data_type %in% "field") %>% 
+    filter(!chl_ysi > 100, !is.na(ext_chl))
+
+
+
+ysi_sensor_all %>% 
+  arrange(file_name, chl_ysi) %>% 
+  ggplot(aes(x = chl_ysi, y = ext_chl)) +
+  geom_point(color = "steelblue") +
+ #facet_wrap(~ file_name, scales= "free_y") +
+  theme_bw(base_size = 14) +
+  theme(
+    panel.background = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_line(colour = "gray90", linetype = "dotted", linewidth = 0.5),
+    legend.position = "right",
+      legend.text = element_text(size = 12),   # 👈 increases legend labels
+  legend.title = element_text(size = 14),
+  
+    axis.text = element_text(size = 16, margin = margin(t = 15)),
+    axis.title = element_text(size = 14),
+    axis.text.x = element_text(vjust = 1, hjust = 1),
+    #plot.title = element_text(hjust = 0.5, size = 30, face = "bold"),
+  ) 
+
+  
+ggsave(filename = "plots/CALIB_ysi_all_sensor/ext~ysi_field.png", width = 14, height = 10, dpi = 300)
+
+
+
+
+
+
+```
+
+
+
+Transformations
+
++ Log data 
+```{r}
+
+
+
+ysi_model_data <- ysi_sensor_all%>%
+    mutate(
+    log_ext_chl = log10(ext_chl),
+    log_chl = log10(chl_ysi),
+    log_bga = log10(bga_ysi),
+    log_spcond = log10(sp_cond_ysi)
+  ) %>%
+  mutate(
+    log_chl_c = scale(log_chl, scale = FALSE),
+    log_bga_c = scale(log_bga,  scale = FALSE),
+    log_spcond_c = scale(log_spcond, scale = FALSE),
+    temp_c    = scale(temp_ysi,    scale = FALSE)
+  ) %>% 
+  filter(!chl_ysi < 1)
+
+
+```
+
+
+
+log transformed
+
+```{r}
+
+
+summary(model_MF_log)
+
+model_ysi_log <- lm(log_ext_chl ~ log_chl, data =ysi_model_data)
+
+summary(model_ysi_log)
+
+par(mfrow = c(2,2))
+plot(model_ysi_log)
+
+
+
+
+ysi_model_data %>% 
+  ggplot(aes(log_chl, log_ext_chl)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  #acet_wrap(~ file_name, scales = "free_y") +
+  theme_bw(base_size = 14) +
+  theme(
+    panel.background = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_line(colour = "gray90", linetype = "dotted", linewidth = 0.5),
+    legend.position = "right",
+      legend.text = element_text(size = 12),   # 👈 increases legend labels
+  legend.title = element_text(size = 14),
+  
+    axis.text = element_text(size = 16, margin = margin(t = 15)),
+    axis.title = element_text(size = 14),
+    axis.text.x = element_text(vjust = 1, hjust = 1),
+    #plot.title = element_text(hjust = 0.5, size = 30, face = "bold"),
+  ) +
+  stat_regline_equation(
+    aes(label =  paste(after_stat(eq.label), ..rr.label.., 
+                       sep = "~~~~")), show.legend = FALSE)
+
+
+
+ggsave(filename = "plots/CALIB_ysi_all_sensor/log_ext~ysi_4.png", height=10, width=14, dpi=300)
+
+
+
+
+
+```
+
+In the DG sensor data, there is a point of 0.4 at BG13 which I think is faulty, maybe the sensor wasn't sensitive enough because it's  corresponding extracted_chl is high enough ~17ug/l to warrant a sonde response above 1ug/l. From the model, excluding this point elevates the R2 value from 0.009 to 0.23 which is better.The point shifts the slope to negative.
+
+
+
+
++ Mixed effect model
+
+```{r}
+
+ysi_model_data$file_name <- relevel(
+  factor(ysi_model_data$file_name), 
+  ref = "cruise-ysidata-2023_naphtali" 
+)
+
+
+
+# 1 Run the Mixed Effects Model (lmer)
+# This treats each cruise as a random sample from a larger population
+library(lme4)
+model_mixed_ysi<- lmer(log_ext_chl ~ log_chl + (1 | file_name), data = ysi_model_data)
+summary(model_ysi_log)
+
+par(mfrow = c(2,2))
+plot(model_mixed_ysi)
+
+
+
+```
+
++ Predict values for global (flat average) and lmer model (accounts for cruise as random effect)
+
+```{r}
+
+
+#Global model predicted values
+
+ysi_model_data$pred_log_global <- predict(model_ysi_log, newdata = ysi_model_data)
+
+sigma_log <- summary(model_ysi_log)$sigma^2
+
+bcf_log <- exp((sigma_log^2 / 2) * (log(10)^2)) #corrects log bias
+
+ysi_model_data$pred_ext_chl_global <- 10^(ysi_model_data$pred_log_global) * bcf_log
+
+
+# 1. Extract Fixed Effects and Sigma
+coeffs <- fixef(model_mixed_ysi)
+b0 <- coeffs["(Intercept)"]
+b1 <- coeffs["log_chl"]
+sig <- sigma(model_mixed_ysi)
+
+
+
+# 2. Calculate Bias Correction Factor (BCF)
+bcf_mm <- exp((sig^2 / 2) * (log(10)^2))
+
+# 3. Predict for your dataset
+
+ysi_model_data <- ysi_model_data %>%
+  mutate(
+    log_pred_mm   = b0 + (b1 * log_chl),  #predict data using the model
+    pred_ext_mm = (10^log_pred_mm) * bcf_mm   #back transform
+  )
+
+
+
+
+```
+
++ Evaluate both global and mixed effects model _ plot both models and compare with observed
+
+```{r}
+
+ysi_model_data_long <-ysi_model_data %>% 
+  pivot_longer(
+    cols = c(ext_chl, pred_ext_chl_global, pred_ext_mm),
+    names_to = "model",
+               values_to = "chlorophyll") %>%
+mutate(type = ifelse(model == "ext_chl", "Observed", "Predicted"))
+
+
+
+ggplot(
+  ysi_model_data,
+  aes(x = ext_chl)
+) +
+  geom_point(aes(y = pred_ext_chl_global, color = "Global model"), size = 2) +
+   geom_point(aes(y = pred_ext_mm, color = "Mixed model"), size = 2) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+  
+
+  labs(
+    x = "Observed Extracted Chlorophyll",
+    y = "Predicted Extracted Chlorophyll",
+    color = "Model"
+  ) +
+  theme_bw(base_size = 10) +
+  theme(
+    panel.background = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_line(colour = "gray90", linetype = "dotted", linewidth = 0.5),
+    legend.position = "right",
+      legend.text = element_text(size = 12),   # 👈 increases legend labels
+  legend.title = element_text(size = 14),
+  
+    axis.text = element_text(size = 16, margin = margin(t = 15)),
+    axis.title = element_text(size = 14),
+    axis.text.x = element_text(vjust = 1, hjust = 1),
+    #plot.title = element_text(hjust = 0.5, size = 30, face = "bold"),
+  ) 
+
+#+  guides(color = guide_legend(override.aes = list(size = 8))) + 
+  
+
+
+ggsave(file="plots/CALIB_ysi_all_sensor/plot_models_predictedvsobs_extchl.png", width = 16, height = 10, dpi = 300)
+
+
+
+
+# Calculate metrics
+
+library(Metrics)
+
+rmse_global <- rmse(ysi_model_data$ext_chl, ysi_model_data$pred_ext_chl_global) #residual mean of squared erros
+mae_global <- mae(ysi_model_data$ext_chl, ysi_model_data$pred_ext_chl_global) #mean abs error
+
+rmse_mm <- rmse(ysi_model_data$ext_chl, ysi_model_data$pred_ext_mm) #residual mean of 
+mae_mm <- mae(ysi_model_data$ext_chl, ysi_model_data$pred_ext_mm) #mean abs error
+
+
+ysi_rmse_table <- tibble(rmse_global, mae_global, rmse_mm, mae_mm)
+
+print(ysi_rmse_table)
+
+
+
+```
+
+# validation (Mixed effects model)
+
++   Test/Train 
+
+```{r}
+
+#library(boot)
+
+#cv.glm(c3_calib_data_clean, model_log, K = 10)$delta
+
+
+library(dplyr)
+
+set.seed(123)
+
+K <- 10
+folds <- sample(rep(1:K, length.out = nrow(ysi_model_data)))
+
+cv_results <- data.frame()
+
+for (k in 1:K) {
+  
+  train <- ysi_model_data[folds != k, ]
+  test  <- ysi_model_data[folds == k, ]
+  
+# 1. Extract Fixed Effects and Sigma
+
+model <- model_mixed_ysi
+coeffs <- fixef(model_mixed_ysi)
+b0 <- coeffs["(Intercept)"]
+b1 <- coeffs["log_chl"]
+sig <- sigma(model_mixed_ysi)
+
+
+# 2. Calculate Bias Correction Factor (BCF)
+bcf_mm <- exp((sig^2 / 2) * (log(10)^2))
+
+# 3. Predict for your dataset
+test <- test %>%
+  mutate(
+    log_pred_mm   = b0 + (b1 * log_chl),  #predict data using the model
+    pred_ext_mm = (10^log_pred_mm) * bcf_mm   #back transform
+  )
+
+  
+  # Store results
+  cv_results <- rbind(cv_results, test)
+}
+
+# Final RMSE: the square root of the average of squared differences between observed and predicted values
+rmse_mm_ysi<- rmse(cv_results$ext_chl, cv_results$pred_ext_mm)
+
+
+
+```
+
+So using the mixed effects model, the prediction is 7ug/l more.
+
+
+
+
+# Loading ysi monthly files
+
+
+```{r}
+
 file_paths_ysi_csv <- dir("ysi_timeseries_files", pattern = "*.csv", full.names = TRUE)
 
 
@@ -1880,8 +2362,27 @@ ysi_month_b <- ysi_month %>%
 ))) %>% 
   mutate(year= year(date_time_parsed),
          month = month(date_time_parsed),
-         mmyy = format(date_time_parsed, "%m-%y"))
+         mmyy = format(date_time_parsed, "%m-%y")) 
+  
+
 ```
+
++ Clean the monthly data
+
+```{r}
+
+ysi_month_c <- ysi_month_b %>% 
+         mutate(
+    bad_sensor = (chl_7  < 0| chl_7  > 100))
+
+         
+```
+
+
+
+
+
++ Apply mixed model to the monthly ysi MF sensor data
 
 + MFANGANO DATA
 
@@ -1927,66 +2428,70 @@ MF_month <- MF_month %>%
 
 
 
-
-
-
-
-
-    + DG sonde sensor
++ all ysi monthly files
 
 ```{r}
 
-cruise_sondes_2022
-
-ysi_calib_data_field <- ysi_calib_data  %>% 
-  filter(data_type %in% "field") 
 
 
-DG_sensor <- ysi_calib_data_field %>% 
-  filter(file_name == "cruise-2022_DGysi")
+monthly_ysi_data <-  ysi_month_c %>% 
+    rename(chl_rfu = chl_7,
+         bga_rfu = bga_pc_9)
 
 
-model_dg <- lm(ext_chl ~ chl_ysi, data = DG_sensor)
-
-summary(model_dg)
-
-par(mfrow = c(2,2))
-plot(model_dg)
-
-plot(model_dg, which = 4)  #Cook's distance
+#predict data
 
 
-ggplot(DG_sensor, aes(chl_ysi, ext_chl)) +
-  geom_point() +
-  geom_smooth(method = "lm", se = FALSE)+
-  stat_regline_equation(
-    aes(label =  paste(after_stat(eq.label), ..rr.label.., 
-                       sep = "~~~~")), show.legend = FALSE)
+#transform data
+
+monthly_ysi_data$log_chl = log10(monthly_ysi_data$chl_rfu)
 
 
+model <- model_mixed_ysi
+coeffs <- fixef(model_mixed_ysi)
+b0 <- coeffs["(Intercept)"]
+b1 <- coeffs["log_chl"]
+sig <- sigma(model_mixed_ysi)
 
-# Cook’s distance
 
-plot(model_dg, which = 4)  
+# 2. Calculate Bias Correction Factor (BCF)
+bcf_mm <- exp((sig^2 / 2) * (log(10)^2))
 
-cooks_d <- cooks.distance(model_dg)
+# 3. Predict for your dataset
+monthly_ysi_data <- monthly_ysi_data %>%
+  mutate(
+    log_pred_mm   = b0 + (b1 * log_chl),  #predict data using the model
+    pred_ext_mm = (10^log_pred_mm) * bcf_mm   #back transform and add correction term
+  )
 
 
-DG_sensor_sub <- DG_sensor[c(1,3,4,5), ]
-
-ggplot(DG_sensor_sub, aes(chl_ysi, ext_chl)) +
-  geom_point() +
-  geom_smooth(method = "lm", se = FALSE)+
-  stat_regline_equation(
-    aes(label =  paste(after_stat(eq.label), ..rr.label.., 
-                       sep = "~~~~")), show.legend = FALSE)
+write_csv(monthly_ysi_data, file = "monthly_ysi_data.csv")
 
 
 
 
 ```
 
- 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
